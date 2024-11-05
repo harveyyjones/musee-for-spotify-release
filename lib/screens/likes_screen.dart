@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:spotify_project/Business_Logic/firestore_database_service.dart';
 import 'package:spotify_project/Business_Logic/Models/user_model.dart';
+import 'package:spotify_project/screens/own_profile_screens_for_clients.dart';
 import 'package:spotify_project/screens/profile_screen.dart';
 import 'package:spotify_project/widgets/bottom_bar.dart';
 
@@ -84,7 +85,7 @@ class _LikesScreenState extends State<LikesScreen> {
                 child: Image.network(
                   user.profilePhotos.isNotEmpty
                       ? user.profilePhotos.first
-                      : 'https://example.com/default_profile_image.jpg',
+                      : defaultImage,
                   fit: BoxFit.cover,
                 ),
               ),

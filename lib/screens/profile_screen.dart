@@ -346,7 +346,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   Widget _buildUserProfile(dynamic userData) {
     List<String> profilePhotos = userData.profilePhotos ?? [];
     String defaultImage =
-        "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png";
+        "https://static.vecteezy.com/system/resources/previews/009/734/564/non_2x/default-avatar-profile-icon-of-social-media-user-vector.jpg";
 
     if (profilePhotos.isEmpty) {
       profilePhotos = [defaultImage];
@@ -498,7 +498,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                       MaterialPageRoute(
                           builder: (context) => ChatScreen(
                                 widget.uid,
-                                userData.profilePhotos[0],
+                                userData.profilePhotos.isNotEmpty
+                                    ? userData.profilePhotos[0]
+                                    : defaultImage,
                                 userData.name,
                               )));
                   print("Message button tapped");

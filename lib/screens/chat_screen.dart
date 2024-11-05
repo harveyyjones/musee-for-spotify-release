@@ -15,7 +15,7 @@ import 'package:intl/intl.dart';
 
 class ChatScreen extends StatefulWidget {
   final String userIDOfOtherUser;
-  final String profileURL;
+  var profileURL;
   final String name;
 
   ChatScreen(this.userIDOfOtherUser, this.profileURL, this.name);

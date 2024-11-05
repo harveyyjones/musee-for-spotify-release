@@ -44,15 +44,15 @@ class SpotifyArtistsResponse {
   });
 
   factory SpotifyArtistsResponse.fromJson(Map<String, dynamic> json) {
+    print("Parsing SpotifyArtistsResponse: $json");
     return SpotifyArtistsResponse(
-      href: json['href'],
-      limit: json['limit'],
-      next: json['next'],
-      offset: json['offset'],
-      previous: json['previous'],
-      total: json['total'],
-      items:
-          List<Artist>.from(json['items'].map((item) => Artist.fromJson(item))),
+      href: json['href'] ?? 'default_href',
+      limit: json['limit'] ?? 0,
+      next: json['next'] ?? 'default_next',
+      offset: json['offset'] ?? 0,
+      previous: json['previous'] ?? 'default_previous',
+      total: json['total'] ?? 0,
+      items: List<Artist>.from(json['items']?.map((item) => Artist.fromJson(item)) ?? []),
     );
   }
 }
@@ -84,7 +84,7 @@ class Artist {
 
   factory Artist.fromJson(Map<String, dynamic> json) {
     try {
-      print("Parsing artist: ${json['name']}");
+      print("Parsing artist: ${json['name'] ?? 'Unknown Artist'}");
       return Artist(
         externalUrls: ExternalUrls.fromJson(
             json['external_urls'] as Map<String, dynamic>? ?? {}),
@@ -92,34 +92,32 @@ class Artist {
             json['followers'] as Map<String, dynamic>? ?? {}),
         genres: (json['genres'] as List<dynamic>?)
                 ?.map((e) => e.toString())
-                .toList() ??
-            [],
-        href: json['href']?.toString() ?? '',
-        id: json['id']?.toString() ?? '',
+                .toList() ?? [],
+        href: json['href']?.toString() ?? 'default_href',
+        id: json['id']?.toString() ?? 'default_id',
         images: (json['images'] as List<dynamic>?)
                 ?.map((image) =>
                     ImageOftheArtist.fromJson(image as Map<String, dynamic>))
-                .toList() ??
-            [],
-        name: json['name']?.toString() ?? '',
+                .toList() ?? [],
+        name: json['name']?.toString() ?? 'Unknown Artist',
         popularity: json['popularity'] as int? ?? 0,
-        type: json['type']?.toString() ?? '',
-        uri: json['uri']?.toString() ?? '',
+        type: json['type']?.toString() ?? 'default_type',
+        uri: json['uri']?.toString() ?? 'default_uri',
       );
     } catch (e) {
       print("Error parsing artist JSON: $e");
       print("Problematic JSON: $json");
       return Artist(
-        externalUrls: ExternalUrls(spotify: ''),
+        externalUrls: ExternalUrls(spotify: 'default_spotify'),
         followers: Followers(total: 0),
         genres: [],
-        href: '',
-        id: '',
+        href: 'default_href',
+        id: 'default_id',
         images: [],
-        name: json['name']?.toString() ?? 'Unknown Artist',
+        name: 'Unknown Artist',
         popularity: 0,
-        type: '',
-        uri: '',
+        type: 'default_type',
+        uri: 'default_uri',
       );
     }
   }
@@ -131,7 +129,8 @@ class ExternalUrls {
   ExternalUrls({required this.spotify});
 
   factory ExternalUrls.fromJson(Map<String, dynamic> json) {
-    return ExternalUrls(spotify: json['spotify']);
+    print("Parsing ExternalUrls: $json");
+    return ExternalUrls(spotify: json['spotify'] ?? 'default_spotify');
   }
 }
 
@@ -142,9 +141,10 @@ class Followers {
   Followers({this.href, required this.total});
 
   factory Followers.fromJson(Map<String, dynamic> json) {
+    print("Parsing Followers: $json");
     return Followers(
-      href: json['href'],
-      total: json['total'],
+      href: json['href'] ?? 'default_href',
+      total: json['total'] ?? 0,
     );
   }
 }
@@ -158,10 +158,11 @@ class ImageOftheArtist {
       {required this.url, required this.height, required this.width});
 
   factory ImageOftheArtist.fromJson(Map<String, dynamic> json) {
+    print("Parsing ImageOftheArtist: $json");
     return ImageOftheArtist(
-      url: json['url'],
-      height: json['height'],
-      width: json['width'],
+      url: json['url'] ?? 'default_url',
+      height: json['height'] ?? 0,
+      width: json['width'] ?? 0,
     );
   }
 }

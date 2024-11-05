@@ -20,6 +20,9 @@ class OwnProfileScreenForClients extends StatefulWidget {
       _OwnProfileScreenForClientsState();
 }
 
+ String defaultImage =
+        "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png";
+
 class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
     with SingleTickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
@@ -43,7 +46,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
     // Add animation controller initialization
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: Duration(milliseconds: 300),
     );
     _expansionAnimation = CurvedAnimation(
       parent: _animationController,
@@ -54,59 +57,122 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
   PageController _pageController = PageController();
 
   Future<Map<String, dynamic>> _loadAllData() async {
-    // Check if cached data exists and is less than 5 minutes old
-    if (_cachedData != null && _lastFetchTime != null) {
-      final difference = DateTime.now().difference(_lastFetchTime!);
-      if (difference.inMinutes < 5) {
-        return _cachedData!;
+    try {
+      // Check if cached data exists and is less than 5 minutes old
+      if (_cachedData != null && _lastFetchTime != null) {
+        final difference = DateTime.now().difference(_lastFetchTime!);
+        if (difference.inMinutes < 5) {
+          print("Returning cached data");
+          return _cachedData!;
+        }
       }
-    }
 
-    final userData = await _serviceForSnapshot.getUserData();
-    final artistsData = await _serviceForSnapshot
-        .getTopArtistsFromFirebase(userData.userId ?? '');
-    final tracks = await SpotifyServiceForTracks(accessToken).fetchTracks();
+      print("Fetching fresh data...");
+      
+      // Get user data
+      final userData = await _serviceForSnapshot.getUserData();
+      if (userData == null) {
+        throw Exception("Failed to fetch user data");
+      }
+      print("User data fetched successfully: ${userData.name}");
 
-    print("Fetched ${artistsData!.length} artists from Firebase");
+      // Get artists data with error handling
+      final artistsData = await _serviceForSnapshot
+          .getTopArtistsFromFirebase(userData.userId ?? '');
+      print("Raw artists data: $artistsData");
 
-    // Convert the Firebase data back to a SpotifyArtistsResponse
-    final artists = SpotifyArtistsResponse(
-      href: '',
-      limit: artistsData.length,
-      offset: 0,
-      total: artistsData.length,
-      items: artistsData.map((artist) {
-        print(
-            "Processing artist: ${artist['name']}, Genres: ${artist['genres']}");
-        return Artist(
-          externalUrls: ExternalUrls(spotify: ''),
-          followers: Followers(total: 0),
-          genres: List<String>.from(artist['genres'] ?? []),
+      // Create empty SpotifyArtistsResponse if no artists data
+      final SpotifyArtistsResponse artists;
+      if (artistsData != null && artistsData.isNotEmpty) {
+        print("Processing artist data for genres...");
+        artists = SpotifyArtistsResponse(
           href: '',
-          id: artist['id'] ?? '',
-          images: [
-            if (artist['imageUrl'] != null)
-              ImageOftheArtist(url: artist['imageUrl'], height: 0, width: 0)
-          ],
-          name: artist['name'] ?? '',
-          popularity: artist['popularity'] ?? 0,
-          type: '',
-          uri: '',
+          limit: artistsData.length,
+          offset: 0,
+          total: artistsData.length,
+          items: artistsData.map((artist) {
+            print("Processing artist for genres: ${artist['name']}");
+            print("Raw genres data: ${artist['genres']}");
+            
+            List<String> processedGenres = [];
+            if (artist['genres'] != null) {
+                if (artist['genres'] is List) {
+                    processedGenres = List<String>.from(artist['genres']);
+                } else if (artist['genres'] is String) {
+                    // Handle case where genres might be a comma-separated string
+                    processedGenres = artist['genres'].split(',').map((e) => e.trim()).toList();
+                }
+            }
+            print("Processed genres: $processedGenres");
+
+            return Artist(
+              externalUrls: ExternalUrls(spotify: artist['spotify_url'] ?? ''),
+              followers: Followers(total: artist['followers']?['total'] ?? 0),
+              genres: processedGenres,
+              href: artist['href'] ?? '',
+              id: artist['id'] ?? '',
+              images: [
+                if (artist['imageUrl'] != null)
+                  ImageOftheArtist(
+                    url: artist['imageUrl'],
+                    height: 0,
+                    width: 0
+                  )
+              ],
+              name: artist['name'] ?? 'Unknown Artist',
+              popularity: artist['popularity'] ?? 0,
+              type: artist['type'] ?? '',
+              uri: artist['uri'] ?? '',
+            );
+          }).toList(),
         );
-      }).toList(),
-    );
+      } else {
+        artists = SpotifyArtistsResponse(
+          href: '',
+          limit: 0,
+          offset: 0,
+          total: 0,
+          items: [],
+        );
+      }
 
-    // Update the top tracks in Firebase
-    await _serviceForSnapshot.updateTopTracks(tracks);
+      // Fetch tracks with error handling
+      List<SpotifyTrack> tracks = [];
+      try {
+        tracks = await SpotifyServiceForTracks(accessToken).fetchTracks();
+        await _serviceForSnapshot.updateTopTracks(tracks);
+      } catch (e) {
+        print("Error fetching tracks: $e");
+        // Continue with empty tracks list rather than failing
+      }
 
-    _cachedData = {
-      'userData': userData,
-      'artists': artists,
-      'tracks': tracks,
-    };
-    _lastFetchTime = DateTime.now();
+      // Cache the results
+      _cachedData = {
+        'userData': userData,
+        'artists': artists,
+        'tracks': tracks,
+      };
+      _lastFetchTime = DateTime.now();
 
-    return _cachedData!;
+      print("Data load complete. Artists: ${artists.items.length}, Tracks: ${tracks.length}");
+      return _cachedData!;
+
+    } catch (e, stackTrace) {
+      print("Error in _loadAllData: $e");
+      print("Stack trace: $stackTrace");
+      // Return empty data rather than throwing
+      return {
+        'userData': await _serviceForSnapshot.getUserData(),
+        'artists': SpotifyArtistsResponse(
+          href: '',
+          limit: 0,
+          offset: 0,
+          total: 0,
+          items: [],
+        ),
+        'tracks': <SpotifyTrack>[],
+      };
+    }
   }
 
   @override
@@ -124,28 +190,36 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF1DB954)));
+            child: CircularProgressIndicator(color: Color(0xFF1DB954))
+          );
         }
+
         if (snapshot.hasError) {
           print("Error in FutureBuilder: ${snapshot.error}");
           return Center(
-              child: Text('Error: ${snapshot.error}',
-                  style: const TextStyle(color: Colors.white)));
-        }
-        if (!snapshot.hasData) {
-          print("No data available in FutureBuilder");
-          return const Center(
-              child: Text('No data available',
-                  style: TextStyle(color: Colors.white)));
+            child: Text(
+              'Error loading profile data. Please try again.',
+              style: TextStyle(color: Colors.white),
+            ),
+          );
         }
 
-        final data = snapshot.data!;
+        final data = snapshot.data ?? {
+          'userData': null,
+          'artists': SpotifyArtistsResponse(
+            href: '',
+            limit: 0,
+            offset: 0,
+            total: 0,
+            items: [],
+          ),
+          'tracks': <SpotifyTrack>[],
+        };
+
         final userData = data['userData'];
         final artists = data['artists'] as SpotifyArtistsResponse;
         final tracks = data['tracks'] as List<SpotifyTrack>;
         final genres = _prepareGenres(artists);
-
-        print("Building profile with ${genres.length} genres");
 
         return Scaffold(
           backgroundColor: Colors.black,
@@ -153,28 +227,31 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
             controller: _scrollController,
             slivers: [
               SliverToBoxAdapter(child: _buildUserProfile(userData)),
-              SliverToBoxAdapter(child: _buildGenresWidget(genres)),
-              SliverToBoxAdapter(child: _buildTopArtists(artists)),
+              if (genres.isNotEmpty)
+                SliverToBoxAdapter(child: _buildGenresWidget(genres)),
+              if (artists.items.isNotEmpty)
+                SliverToBoxAdapter(child: _buildTopArtists(artists)),
               SliverToBoxAdapter(
-                  child: Divider(
-                      thickness: 1,
-                      color:
-                          const Color.fromARGB(0, 255, 255, 255).withOpacity(0.5))),
-              SliverToBoxAdapter(child: _buildTopTracks(tracks)),
+                child: Divider(
+                  thickness: 1,
+                  color: Colors.white.withOpacity(0.5)
+                )
+              ),
+              if (tracks.isNotEmpty)
+                SliverToBoxAdapter(child: _buildTopTracks(tracks)),
             ],
           ),
           bottomNavigationBar: BottomBar(
-            selectedIndex: userData.clinicOwner ?? true ? 2 : 2,
+            selectedIndex: userData?.clinicOwner ?? true ? 2 : 2,
           ),
         );
       },
     );
   }
+   
 
   Widget _buildUserProfile(dynamic userData) {
     List<String> profilePhotos = userData.profilePhotos ?? [];
-    String defaultImage =
-        "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png";
 
     if (profilePhotos.isEmpty) {
       profilePhotos = [defaultImage];
@@ -187,7 +264,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
           _currentImageIndex++;
           _pageController.animateToPage(
             _currentImageIndex,
-            duration: const Duration(milliseconds: 300),
+            duration: Duration(milliseconds: 300),
             curve: Curves.easeInOut,
           );
         });
@@ -201,7 +278,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
           _currentImageIndex--;
           _pageController.animateToPage(
             _currentImageIndex,
-            duration: const Duration(milliseconds: 300),
+            duration: Duration(milliseconds: 300),
             curve: Curves.easeInOut,
           );
         });
@@ -238,7 +315,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                   );
                 },
                 errorBuilder: (context, error, stackTrace) =>
-                    const Icon(Icons.error, color: Colors.yellow),
+                    Icon(Icons.error, color: Colors.yellow),
               );
             },
           ),
@@ -272,13 +349,13 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
             children: List.generate(
               profilePhotos.length,
               (index) => Container(
-                margin: const EdgeInsets.symmetric(horizontal: 4),
+                margin: EdgeInsets.symmetric(horizontal: 4),
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: _currentImageIndex == index
-                      ? const Color(0xFF1ED760)
+                      ? Color(0xFF1ED760)
                       : Colors.white.withOpacity(0.5),
                 ),
               ),
@@ -300,7 +377,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(
                 userData.majorInfo ?? "No major info",
                 style: TextStyle(
@@ -308,7 +385,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                   color: Colors.white.withOpacity(0.8),
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(
                 userData.biography ?? "No biography available.",
                 style: TextStyle(
@@ -327,7 +404,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
           child: InkWell(
             onTap: () {
               Navigator.push(context,
-                  MaterialPageRoute(builder: (context) => const ProfileSettings()));
+                  MaterialPageRoute(builder: (context) => ProfileSettings()));
             },
             child: Hero(
               tag: "Profile Screen",
@@ -344,26 +421,26 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
       stream: SpotifySdk.subscribePlayerState(),
       builder: (BuildContext context, AsyncSnapshot<PlayerState> snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
+          return Center(
               child: CircularProgressIndicator(color: Color(0xFF1DB954)));
         }
         if (snapshot.hasError) {
           return Center(
               child: Text('Error: ${snapshot.error}',
-                  style: const TextStyle(color: Colors.white)));
+                  style: TextStyle(color: Colors.white)));
         }
         if (!snapshot.hasData || snapshot.data?.track == null) {
-          return const SizedBox.shrink();
+          return SizedBox.shrink();
         }
 
         final track = snapshot.data!.track!;
         return Container(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-          color: const Color(0xFF1DB954).withOpacity(0.1),
+          padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          color: Color(0xFF1DB954).withOpacity(0.1),
           child: Row(
             children: [
-              const Icon(Icons.music_note, color: Color(0xFF1DB954)),
-              const SizedBox(width: 12),
+              Icon(Icons.music_note, color: Color(0xFF1DB954)),
+              SizedBox(width: 12),
               Expanded(
                 child: Text(
                   '${track.artist.name} - ${track.name}',
@@ -384,11 +461,11 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Text(
             'Top Artists',
             style: TextStyle(
-              color: const Color(0xFF1DB954),
+              color: Color(0xFF1DB954),
               fontSize: 24.sp,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -404,7 +481,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
               final artist = artists.items[index];
               return Container(
                 width: 120,
-                margin: const EdgeInsets.symmetric(horizontal: 8),
+                margin: EdgeInsets.symmetric(horizontal: 8),
                 child: Column(
                   children: [
                     Container(
@@ -412,12 +489,12 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                       height: 100,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: const Color(0xFF1DB954), width: 2),
+                        border: Border.all(color: Color(0xFF1DB954), width: 2),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF1DB954).withOpacity(0.3),
+                            color: Color(0xFF1DB954).withOpacity(0.3),
                             blurRadius: 8,
-                            offset: const Offset(0, 4),
+                            offset: Offset(0, 4),
                           ),
                         ],
                       ),
@@ -428,7 +505,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     Text(
                       artist.name,
                       style: TextStyle(
@@ -457,8 +534,8 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color.fromARGB(255, 0, 0, 0),
-            const Color.fromARGB(255, 17, 188, 119).withOpacity(0.1),
+            Color.fromARGB(255, 0, 0, 0),
+            Color.fromARGB(255, 17, 188, 119).withOpacity(0.1),
           ],
         ),
       ),
@@ -470,7 +547,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
             child: Text(
               'Top Tracks',
               style: TextStyle(
-                color: const Color(0xFF1DB954),
+                color: Color(0xFF1DB954),
                 fontSize: 28.sp,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.2,
@@ -479,12 +556,12 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
           ),
           ListView.builder(
             shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
+            physics: NeverScrollableScrollPhysics(),
             itemCount: 5,
             itemBuilder: (context, index) {
               final track = tracks[index];
               return AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
+                duration: Duration(milliseconds: 300),
                 curve: Curves.easeInOut,
                 margin: EdgeInsets.symmetric(vertical: 8.h, horizontal: 16.w),
                 decoration: BoxDecoration(
@@ -492,9 +569,9 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                   borderRadius: BorderRadius.circular(12.r),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF1DB954).withOpacity(0.1),
+                      color: Color(0xFF1DB954).withOpacity(0.1),
                       blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      offset: Offset(0, 4),
                     ),
                   ],
                 ),
@@ -515,14 +592,14 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                         return Container(
                           width: 60.w,
                           height: 60.w,
-                          color: const Color(0xFF1DB954).withOpacity(0.2),
+                          color: Color(0xFF1DB954).withOpacity(0.2),
                           child: Center(
                             child: CircularProgressIndicator(
                               value: loadingProgress.expectedTotalBytes != null
                                   ? loadingProgress.cumulativeBytesLoaded /
                                       loadingProgress.expectedTotalBytes!
                                   : null,
-                              color: const Color(0xFF1DB954),
+                              color: Color(0xFF1DB954),
                             ),
                           ),
                         );
@@ -530,8 +607,8 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                       errorBuilder: (context, error, stackTrace) => Container(
                         width: 60.w,
                         height: 60.w,
-                        color: const Color(0xFF1DB954).withOpacity(0.2),
-                        child: const Icon(Icons.error, color: Color(0xFF1DB954)),
+                        color: Color(0xFF1DB954).withOpacity(0.2),
+                        child: Icon(Icons.error, color: Color(0xFF1DB954)),
                       ),
                     ),
                   ),
@@ -561,113 +638,141 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
 
   Widget _buildGenresWidget(List<String> genres) {
     print("Building genres widget with ${genres.length} genres");
+    
+    // Early return if no genres
     if (genres.isEmpty) {
-      return const SizedBox.shrink();
+        print("No genres available to display");
+        return SizedBox.shrink();
     }
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Text(
-            'Music Interests',
-            style: TextStyle(
-              color: const Color(0xFF1DB954),
-              fontSize: 24.sp,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ),
-        AnimatedBuilder(
-          animation: _expansionAnimation,
-          builder: (context, child) {
-            final displayedGenres =
-                _showAllGenres ? genres : genres.take(4).toList();
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: displayedGenres.map((genre) {
-                  return AnimatedOpacity(
-                    opacity: _showAllGenres || genres.indexOf(genre) < 4
-                        ? 1.0
-                        : _expansionAnimation.value,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                    child: Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1DB954).withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFF1DB954)),
-                      ),
-                      child: Text(
-                        genre,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            );
-          },
-        ),
-        if (genres.length > 4)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _showAllGenres = !_showAllGenres;
-                  if (_showAllGenres) {
-                    _animationController.forward();
-                  } else {
-                    _animationController.reverse();
-                  }
-                });
-              },
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _showAllGenres ? 'Show Less' : 'Show More',
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+            Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Text(
+                    'Music Interests',
                     style: TextStyle(
-                      color: const Color(0xFF1DB954),
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w500,
+                        color: Color(0xFF1DB954),
+                        fontSize: 24.sp,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
                     ),
-                  ),
-                  AnimatedRotation(
-                    turns: _showAllGenres ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 300),
-                    child: const Icon(
-                      Icons.arrow_drop_down,
-                      color: Color(0xFF1DB954),
-                    ),
-                  ),
-                ],
-              ),
+                ),
             ),
-          ),
-      ],
+            AnimatedBuilder(
+                animation: _expansionAnimation,
+                builder: (context, child) {
+                    final displayedGenres = _showAllGenres ? genres : genres.take(4).toList();
+                    print("Displaying ${displayedGenres.length} genres");
+                    
+                    return Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 20),
+                        child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: displayedGenres.map((genre) {
+                                return Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                        color: Color(0xFF1DB954).withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(color: Color(0xFF1DB954)),
+                                    ),
+                                    child: Text(
+                                        genre,
+                                        style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14.sp,
+                                            fontWeight: FontWeight.w500,
+                                        ),
+                                    ),
+                                );
+                            }).toList(),
+                        ),
+                    );
+                },
+            ),
+            // Only show expand/collapse if we have more than 4 genres
+            if (genres.length > 4)
+                Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: GestureDetector(
+                        onTap: () {
+                            setState(() {
+                                _showAllGenres = !_showAllGenres;
+                                if (_showAllGenres) {
+                                    _animationController.forward();
+                                } else {
+                                    _animationController.reverse();
+                                }
+                            });
+                        },
+                        child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                                Text(
+                                    _showAllGenres ? 'Show Less' : 'Show More',
+                                    style: TextStyle(
+                                        color: Color(0xFF1DB954),
+                                        fontSize: 16.sp,
+                                        fontWeight: FontWeight.w500,
+                                    ),
+                                ),
+                                AnimatedRotation(
+                                    turns: _showAllGenres ? 0.5 : 0,
+                                    duration: Duration(milliseconds: 300),
+                                    child: Icon(
+                                        Icons.arrow_drop_down,
+                                        color: Color(0xFF1DB954),
+                                    ),
+                                ),
+                            ],
+                        ),
+                    ),
+                ),
+        ],
     );
   }
 
-  List<String> _prepareGenres(SpotifyArtistsResponse artists) {
-    // Implement the logic to extract and process genres from the artists data
-    // For example, you can use a Set to remove duplicates and then convert it back to a List
-    Set<String> genresSet = Set<String>();
-    for (var artist in artists.items) {
-      genresSet.addAll(artist.genres);
+  List<String> _prepareGenres(SpotifyArtistsResponse? artists) {
+    print("Starting genre preparation...");
+    if (artists == null) {
+        print("Artists response is null");
+        return [];
     }
-    return genresSet.toList();
+
+    if (artists.items.isEmpty) {
+        print("No artists found in the response");
+        return [];
+    }
+
+    print("Processing ${artists.items.length} artists for genres");
+    
+    Set<String> genresSet = Set<String>();
+    
+    for (var artist in artists.items) {
+        print("Artist: ${artist.name}");
+        print("Raw genres for ${artist.name}: ${artist.genres}");
+        
+        if (artist.genres.isNotEmpty) {
+            // Filter out empty strings and normalize genres
+            var validGenres = artist.genres
+                .where((genre) => genre.isNotEmpty)
+                .map((genre) => genre.trim())
+                .toList();
+                
+            print("Valid genres for ${artist.name}: $validGenres");
+            genresSet.addAll(validGenres);
+        }
+    }
+
+    // Sort genres alphabetically and limit to first 8
+    var sortedGenres = genresSet.toList()
+      ..sort()
+      ..take(8);
+    
+    print("Final prepared genres: $sortedGenres");
+    return sortedGenres;
   }
 }
