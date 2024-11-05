@@ -43,7 +43,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
     // Add animation controller initialization
     _animationController = AnimationController(
       vsync: this,
-      duration: Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 300),
     );
     _expansionAnimation = CurvedAnimation(
       parent: _animationController,
@@ -123,18 +123,18 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
       future: _combinedFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
+          return const Center(
               child: CircularProgressIndicator(color: Color(0xFF1DB954)));
         }
         if (snapshot.hasError) {
           print("Error in FutureBuilder: ${snapshot.error}");
           return Center(
               child: Text('Error: ${snapshot.error}',
-                  style: TextStyle(color: Colors.white)));
+                  style: const TextStyle(color: Colors.white)));
         }
         if (!snapshot.hasData) {
           print("No data available in FutureBuilder");
-          return Center(
+          return const Center(
               child: Text('No data available',
                   style: TextStyle(color: Colors.white)));
         }
@@ -159,7 +159,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                   child: Divider(
                       thickness: 1,
                       color:
-                          Color.fromARGB(0, 255, 255, 255).withOpacity(0.5))),
+                          const Color.fromARGB(0, 255, 255, 255).withOpacity(0.5))),
               SliverToBoxAdapter(child: _buildTopTracks(tracks)),
             ],
           ),
@@ -187,7 +187,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
           _currentImageIndex++;
           _pageController.animateToPage(
             _currentImageIndex,
-            duration: Duration(milliseconds: 300),
+            duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
           );
         });
@@ -201,7 +201,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
           _currentImageIndex--;
           _pageController.animateToPage(
             _currentImageIndex,
-            duration: Duration(milliseconds: 300),
+            duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
           );
         });
@@ -238,7 +238,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                   );
                 },
                 errorBuilder: (context, error, stackTrace) =>
-                    Icon(Icons.error, color: Colors.yellow),
+                    const Icon(Icons.error, color: Colors.yellow),
               );
             },
           ),
@@ -272,13 +272,13 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
             children: List.generate(
               profilePhotos.length,
               (index) => Container(
-                margin: EdgeInsets.symmetric(horizontal: 4),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: _currentImageIndex == index
-                      ? Color(0xFF1ED760)
+                      ? const Color(0xFF1ED760)
                       : Colors.white.withOpacity(0.5),
                 ),
               ),
@@ -300,7 +300,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
                 userData.majorInfo ?? "No major info",
                 style: TextStyle(
@@ -308,7 +308,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                   color: Colors.white.withOpacity(0.8),
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
                 userData.biography ?? "No biography available.",
                 style: TextStyle(
@@ -327,7 +327,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
           child: InkWell(
             onTap: () {
               Navigator.push(context,
-                  MaterialPageRoute(builder: (context) => ProfileSettings()));
+                  MaterialPageRoute(builder: (context) => const ProfileSettings()));
             },
             child: Hero(
               tag: "Profile Screen",
@@ -344,26 +344,26 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
       stream: SpotifySdk.subscribePlayerState(),
       builder: (BuildContext context, AsyncSnapshot<PlayerState> snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
+          return const Center(
               child: CircularProgressIndicator(color: Color(0xFF1DB954)));
         }
         if (snapshot.hasError) {
           return Center(
               child: Text('Error: ${snapshot.error}',
-                  style: TextStyle(color: Colors.white)));
+                  style: const TextStyle(color: Colors.white)));
         }
         if (!snapshot.hasData || snapshot.data?.track == null) {
-          return SizedBox.shrink();
+          return const SizedBox.shrink();
         }
 
         final track = snapshot.data!.track!;
         return Container(
-          padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-          color: Color(0xFF1DB954).withOpacity(0.1),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          color: const Color(0xFF1DB954).withOpacity(0.1),
           child: Row(
             children: [
-              Icon(Icons.music_note, color: Color(0xFF1DB954)),
-              SizedBox(width: 12),
+              const Icon(Icons.music_note, color: Color(0xFF1DB954)),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   '${track.artist.name} - ${track.name}',
@@ -384,11 +384,11 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Text(
             'Top Artists',
             style: TextStyle(
-              color: Color(0xFF1DB954),
+              color: const Color(0xFF1DB954),
               fontSize: 24.sp,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -404,7 +404,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
               final artist = artists.items[index];
               return Container(
                 width: 120,
-                margin: EdgeInsets.symmetric(horizontal: 8),
+                margin: const EdgeInsets.symmetric(horizontal: 8),
                 child: Column(
                   children: [
                     Container(
@@ -412,12 +412,12 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                       height: 100,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: Color(0xFF1DB954), width: 2),
+                        border: Border.all(color: const Color(0xFF1DB954), width: 2),
                         boxShadow: [
                           BoxShadow(
-                            color: Color(0xFF1DB954).withOpacity(0.3),
+                            color: const Color(0xFF1DB954).withOpacity(0.3),
                             blurRadius: 8,
-                            offset: Offset(0, 4),
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
@@ -428,7 +428,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                         ),
                       ),
                     ),
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     Text(
                       artist.name,
                       style: TextStyle(
@@ -457,8 +457,8 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color.fromARGB(255, 0, 0, 0),
-            Color.fromARGB(255, 17, 188, 119).withOpacity(0.1),
+            const Color.fromARGB(255, 0, 0, 0),
+            const Color.fromARGB(255, 17, 188, 119).withOpacity(0.1),
           ],
         ),
       ),
@@ -470,7 +470,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
             child: Text(
               'Top Tracks',
               style: TextStyle(
-                color: Color(0xFF1DB954),
+                color: const Color(0xFF1DB954),
                 fontSize: 28.sp,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.2,
@@ -479,12 +479,12 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
           ),
           ListView.builder(
             shrinkWrap: true,
-            physics: NeverScrollableScrollPhysics(),
+            physics: const NeverScrollableScrollPhysics(),
             itemCount: 5,
             itemBuilder: (context, index) {
               final track = tracks[index];
               return AnimatedContainer(
-                duration: Duration(milliseconds: 300),
+                duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOut,
                 margin: EdgeInsets.symmetric(vertical: 8.h, horizontal: 16.w),
                 decoration: BoxDecoration(
@@ -492,9 +492,9 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                   borderRadius: BorderRadius.circular(12.r),
                   boxShadow: [
                     BoxShadow(
-                      color: Color(0xFF1DB954).withOpacity(0.1),
+                      color: const Color(0xFF1DB954).withOpacity(0.1),
                       blurRadius: 10,
-                      offset: Offset(0, 4),
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
@@ -515,14 +515,14 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                         return Container(
                           width: 60.w,
                           height: 60.w,
-                          color: Color(0xFF1DB954).withOpacity(0.2),
+                          color: const Color(0xFF1DB954).withOpacity(0.2),
                           child: Center(
                             child: CircularProgressIndicator(
                               value: loadingProgress.expectedTotalBytes != null
                                   ? loadingProgress.cumulativeBytesLoaded /
                                       loadingProgress.expectedTotalBytes!
                                   : null,
-                              color: Color(0xFF1DB954),
+                              color: const Color(0xFF1DB954),
                             ),
                           ),
                         );
@@ -530,8 +530,8 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                       errorBuilder: (context, error, stackTrace) => Container(
                         width: 60.w,
                         height: 60.w,
-                        color: Color(0xFF1DB954).withOpacity(0.2),
-                        child: Icon(Icons.error, color: Color(0xFF1DB954)),
+                        color: const Color(0xFF1DB954).withOpacity(0.2),
+                        child: const Icon(Icons.error, color: Color(0xFF1DB954)),
                       ),
                     ),
                   ),
@@ -562,18 +562,18 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
   Widget _buildGenresWidget(List<String> genres) {
     print("Building genres widget with ${genres.length} genres");
     if (genres.isEmpty) {
-      return SizedBox.shrink();
+      return const SizedBox.shrink();
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Text(
             'Music Interests',
             style: TextStyle(
-              color: Color(0xFF1DB954),
+              color: const Color(0xFF1DB954),
               fontSize: 24.sp,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -586,7 +586,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
             final displayedGenres =
                 _showAllGenres ? genres : genres.take(4).toList();
             return Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -595,15 +595,15 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                     opacity: _showAllGenres || genres.indexOf(genre) < 4
                         ? 1.0
                         : _expansionAnimation.value,
-                    duration: Duration(milliseconds: 300),
+                    duration: const Duration(milliseconds: 300),
                     curve: Curves.easeInOut,
                     child: Container(
                       padding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Color(0xFF1DB954).withOpacity(0.2),
+                        color: const Color(0xFF1DB954).withOpacity(0.2),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Color(0xFF1DB954)),
+                        border: Border.all(color: const Color(0xFF1DB954)),
                       ),
                       child: Text(
                         genre,
@@ -622,7 +622,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
         ),
         if (genres.length > 4)
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: GestureDetector(
               onTap: () {
                 setState(() {
@@ -640,15 +640,15 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                   Text(
                     _showAllGenres ? 'Show Less' : 'Show More',
                     style: TextStyle(
-                      color: Color(0xFF1DB954),
+                      color: const Color(0xFF1DB954),
                       fontSize: 16.sp,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                   AnimatedRotation(
                     turns: _showAllGenres ? 0.5 : 0,
-                    duration: Duration(milliseconds: 300),
-                    child: Icon(
+                    duration: const Duration(milliseconds: 300),
+                    child: const Icon(
                       Icons.arrow_drop_down,
                       color: Color(0xFF1DB954),
                     ),

@@ -16,10 +16,23 @@ class LandingPage extends StatefulWidget {
 
 class _LandingPageState extends State<LandingPage> {
   @override
+  void initState() {
+    super.initState();
+    print("LandingPage initialized");
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      print("First frame rendered");
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    print("Building LandingPage");
     return Scaffold(
+      backgroundColor: Colors.red,
       body: Container(
-        decoration: BoxDecoration(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -34,7 +47,7 @@ class _LandingPageState extends State<LandingPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Spacer(),
-                  SizedBox(height: 80.h), // Added SizedBox for spacing
+                  SizedBox(height: 80.h),
                   Text(
                     "Welcome to Musee!",
                     textAlign: TextAlign.center,
@@ -43,6 +56,8 @@ class _LandingPageState extends State<LandingPage> {
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                       height: 1.2,
+                    ).copyWith(
+                      fontFamily: 'Arial',
                     ),
                   ),
                   SizedBox(height: 32.h),
@@ -52,6 +67,8 @@ class _LandingPageState extends State<LandingPage> {
                     style: GoogleFonts.poppins(
                       fontSize: 26.sp,
                       color: Colors.white.withOpacity(0.9),
+                    ).copyWith(
+                      fontFamily: 'Arial',
                     ),
                   ),
                   Spacer(),
@@ -82,6 +99,7 @@ class GeneralButton extends StatelessWidget {
     return InkWell(
       onTap: () async {
         try {
+          print("Button tapped");
           await _businessLogic
               .getAccessToken('b56ad9c2cf434b748466bb6adbb511ca',
                   'https://www.rubycurehealthtourism.com/')
@@ -94,7 +112,7 @@ class GeneralButton extends StatelessWidget {
                     ));
                   }));
         } catch (e) {
-          print("Spotify connection failed.");
+          print("Spotify connection failed: $e");
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
                 content:
@@ -123,6 +141,8 @@ class GeneralButton extends StatelessWidget {
               fontSize: 22.sp,
               fontWeight: FontWeight.w600,
               color: Colors.white,
+            ).copyWith(
+              fontFamily: 'Arial',
             ),
           ),
         ),
