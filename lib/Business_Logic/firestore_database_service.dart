@@ -406,12 +406,30 @@ class FirestoreDatabaseService {
     }
   }
 
-  updateIsUserListening(state, url) async {
-    // Buradan anlık olarak müzik dinlenip dinlenmediğini, dinleniyorsa url'sini ve başlığını çekiyorum.
-    await _instance
+  Future<void> updateIsUserListening(bool isPlaying, String songName) async {
+    if (currentUser == null) return;
+
+    try {
+      await _instance.collection("users").doc(currentUser!.uid).update({
+        "isUserListening": isPlaying,
+        "songName": songName,
+        "lastUpdated": FieldValue.serverTimestamp()
+      });
+    } catch (e) {
+      print('Error updating user listening status: $e');
+    }
+  }
+
+  Stream<Map<String, dynamic>> getUserListeningStream() {
+    // Returns the stream of the currently listening music, or last listened music.
+    return _instance
         .collection("users")
         .doc(currentUser!.uid)
-        .update({"isUserListening": state, "songName": url});
+        .snapshots()
+        .map((snapshot) => {
+              'isListening': snapshot.data()?['isUserListening'] ?? false,
+              'songName': snapshot.data()?['songName'] ?? '',
+            });
   }
 
   getUserDatasToMatch(songName, amIListeningNow) async {
@@ -630,27 +648,28 @@ class FirestoreDatabaseService {
     return peopleWhoLikedMe;
   }
 
-  void updateActiveStatus({snapshot}) async {
+  void updateActiveStatus() async {
     try {
       var isActive = await SpotifySdk.isSpotifyAppActive;
 
-      var _name = SpotifySdk.subscribePlayerState();
       if (isActive) {
-        _name.listen((event) async {
-          print(
-              "*********************  UpdateActiveStatusMethod Triggered. ********************************");
-          print(isActive);
-          print(event.track?.name ?? "");
-          print(event.track!.imageUri.raw);
-          print(event.track!.linkedFromUri);
+        SpotifySdk.subscribePlayerState().listen(
+          (playerState) {
+            if (playerState?.track != null) {
+              final isPlaying = playerState?.isPaused == false;
+              final songName = playerState?.track?.name;
 
-          updateIsUserListening(isActive, event.track!.name);
-
-          getUserDatasToMatch(event.track?.name, isActive);
-        });
+              if (songName != null) {
+                updateIsUserListening(isPlaying, songName);
+                getUserDatasToMatch(songName, isPlaying);
+              }
+            }
+          },
+          onError: (e) => print('Error in Spotify subscription: $e'),
+        );
       }
     } catch (e) {
-      print("Spotify is not active or disconnected: $e");
+      print('Error checking Spotify status: $e');
     }
   }
 

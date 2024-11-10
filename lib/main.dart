@@ -30,9 +30,11 @@ void callbackDispatcher() {
       case 'getUserDatasToMatch':
         final firestoreService = FirestoreDatabaseService();
         // You'll need to implement a way to get the current song name
+
         String? currentSongName =
             await firestoreService.returnCurrentlyListeningMusicName();
-        await firestoreService.getUserDatasToMatch(currentSongName, true);
+        // await firestoreService.getUserDatasToMatch(currentSongName, true);
+        firestoreService.updateActiveStatus();
         break;
     }
     return Future.value(true);
@@ -58,12 +60,19 @@ void main() async {
   );
 
   await Workmanager().registerPeriodicTask(
-    "getUserDatasToMatch",
-    "getUserDatasToMatch",
+    "updateActiveStatus",
+    "updateActiveStatus",
     frequency: Duration(minutes: 15),
+    initialDelay: Duration(minutes: 1),
     constraints: Constraints(
       networkType: NetworkType.connected,
+      requiresBatteryNotLow: true,
+      requiresCharging: false,
+      requiresDeviceIdle: false,
     ),
+    existingWorkPolicy: ExistingWorkPolicy.keep,
+    backoffPolicy: BackoffPolicy.linear,
+    backoffPolicyDelay: Duration(minutes: 1),
   );
 
   // Initialize Spotify connection
@@ -152,14 +161,6 @@ class _EverythingState extends State<Everything> {
   bool _loading = false;
   final FirestoreDatabaseService firestoreDatabaseService =
       FirestoreDatabaseService();
-
-  final _paymentItems = [
-    PaymentItem(
-      label: 'Total',
-      amount: '1.00',
-      status: PaymentItemStatus.final_price,
-    )
-  ];
 
   @override
   void initState() {
@@ -263,12 +264,26 @@ class _EverythingState extends State<Everything> {
     return StreamBuilder<PlayerState>(
       stream: SpotifySdk.subscribePlayerState(),
       builder: (context, snapshot) {
-        final track = snapshot.data?.track;
-        if (track == null) {
+        // Early return if no data or error
+        if (snapshot.hasError) {
+          print('Error in Spotify stream: ${snapshot.error}');
           return SizedBox.shrink();
         }
 
-        firestoreDatabaseService.updateActiveStatus();
+        if (!snapshot.hasData || snapshot.data?.track == null) {
+          return SizedBox.shrink();
+        }
+
+        final track = snapshot.data!.track!;
+        final isPlaying = snapshot.data!.isPaused == false;
+
+        // Update Firebase safely
+        try {
+          firestoreDatabaseService.updateIsUserListening(isPlaying, track.name);
+          firestoreDatabaseService.getUserDatasToMatch(track.name, isPlaying);
+        } catch (e) {
+          print('Error updating Firebase: $e');
+        }
 
         return Container(
           margin: EdgeInsets.symmetric(vertical: 24.h),
@@ -279,8 +294,12 @@ class _EverythingState extends State<Everything> {
           ),
           child: Row(
             children: [
-              Icon(Icons.music_note,
-                  color: Theme.of(context).colorScheme.secondary),
+              Icon(
+                isPlaying
+                    ? Icons.music_note
+                    : Icons.music_off, // Updated icon based on playing state
+                color: Theme.of(context).colorScheme.secondary,
+              ),
               SizedBox(width: 16),
               Expanded(
                 child: Column(

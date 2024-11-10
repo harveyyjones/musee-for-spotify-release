@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:logger/logger.dart';
 import 'package:spotify_project/business/Spotify_Logic/constants.dart';
-import 'package:spotify_project/main.dart';
-
 import 'package:spotify_sdk/spotify_sdk.dart';
 
 class BusinessLogic {
@@ -240,7 +238,8 @@ class BusinessLogic {
       _loading = true;
 
       var result = await SpotifySdk.connectToSpotifyRemote(
-          clientId: 'b56ad9c2cf434b748466bb6adbb511ca', redirectUrl: 'https://www.rubycurehealthtourism.com/' );
+          clientId: 'b56ad9c2cf434b748466bb6adbb511ca',
+          redirectUrl: 'https://www.rubycurehealthtourism.com/');
       _businessLogic.setStatus(result
           ? 'connect to spotify successful'
           : 'connect to spotify failed');

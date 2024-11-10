@@ -57,6 +57,7 @@ dependencies:
   url_launcher: ^6.3.0
   pay: ^2.0.0
   workmanager: ^0.5.2
+  connectivity_plus: ^6.1.0
 
 dev_dependencies:
   flutter_test:
