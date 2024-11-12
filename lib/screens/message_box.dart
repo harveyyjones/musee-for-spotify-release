@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:spotify_project/Business_Logic/Models/conversations_in_message_box.dart';
 import 'package:spotify_project/Business_Logic/Models/user_model.dart';
-import 'package:spotify_project/Business_Logic/chat_database_service.dart';
+import 'package:spotify_project/Business_Logic/chat_services/chat_database_service.dart';
 import 'package:spotify_project/Business_Logic/firestore_database_service.dart';
 import 'package:spotify_project/Helpers/helpers.dart';
 import 'package:spotify_project/screens/chat_screen.dart';

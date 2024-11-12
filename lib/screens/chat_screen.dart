@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:spotify_project/Business_Logic/Models/message_model.dart';
-import 'package:spotify_project/Business_Logic/chat_database_service.dart';
+import 'package:spotify_project/Business_Logic/chat_services/chat_database_service.dart';
 import 'package:spotify_project/Helpers/helpers.dart';
 import 'package:spotify_project/business/active_status_updater.dart';
 import 'package:spotify_project/screens/message_box.dart';

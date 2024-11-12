@@ -20,7 +20,6 @@ import 'package:spotify_project/screens/sharePostScreen.dart' as share_screen;
 import 'package:spotify_project/screens/sharePostScreen.dart';
 import 'package:spotify_sdk/spotify_sdk.dart';
 import 'Models/user_model.dart';
-import 'package:workmanager/workmanager.dart';
 
 List allClinicOwnersList = [];
 
@@ -521,6 +520,32 @@ class FirestoreDatabaseService {
     }
   }
 
+  Future<UserModel?> getTheCurrentMatchesInTheListeningSong(
+      String currentTrackName) async {
+    // when user is listening actively and match at that time with someone or in the past in the same song. They will be returned here.
+    try {
+      final currentMatch = await _instance
+          .collection("matches")
+          .doc(currentUser!.uid)
+          .collection("previousMatchesList")
+          .doc(currentUser!.uid)
+          .get();
+
+      if (currentTrackName != null &&
+          currentTrackName == await getTheMutualSongViaUId(currentUser!.uid)) {
+        var userData = await getUserDataForDetailPage(
+            currentMatch.data()?["uid"].toString());
+        print("*****************************************************");
+        print(userData.toMap());
+        return userData;
+      }
+      return null;
+    } catch (e) {
+      print('Error getting current matches: $e');
+      return null;
+    }
+  }
+
   Future<List> getUserDataViaUId() async {
     List usersList = [];
 
@@ -658,6 +683,9 @@ class FirestoreDatabaseService {
             if (playerState?.track != null) {
               final isPlaying = playerState?.isPaused == false;
               final songName = playerState?.track?.name;
+              print("*****************************************************");
+              print(songName);
+              print(isPlaying);
 
               if (songName != null) {
                 updateIsUserListening(isPlaying, songName);

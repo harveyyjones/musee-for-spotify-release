@@ -1,27 +1,30 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/ui/utils/stream_subscriber_mixin.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:spotify_project/Business_Logic/Models/user_model.dart';
+import 'package:spotify_project/Helpers/helpers.dart';
 import 'package:spotify_project/business/Spotify_Logic/constants.dart';
 import 'package:spotify_project/business/business_logic.dart';
 import 'package:spotify_project/screens/landing_screen.dart';
 import 'package:spotify_project/screens/register_page.dart';
 import 'package:spotify_project/screens/steppers.dart';
 import 'package:spotify_project/widgets/bottom_bar.dart';
+import 'package:spotify_project/widgets/match_loading_widget.dart';
 import 'package:spotify_sdk/models/connection_status.dart';
 import 'package:spotify_sdk/models/player_state.dart';
 import 'package:spotify_sdk/spotify_sdk.dart';
 import 'package:spotify_project/business/Spotify_Logic/Models/top_playlists.dart';
 import 'package:spotify_project/business/Spotify_Logic/services/fetch_playlists.dart';
+import 'package:workmanager/workmanager.dart';
 
 import 'screens/quick_match_screen.dart';
 
-import 'package:pay/pay.dart'; // Added import for ApplePayButton and GooglePayButton
-
-import 'package:workmanager/workmanager.dart';
 import 'package:spotify_project/Business_Logic/firestore_database_service.dart';
 
 void callbackDispatcher() {
@@ -62,17 +65,11 @@ void main() async {
   await Workmanager().registerPeriodicTask(
     "updateActiveStatus",
     "updateActiveStatus",
-    frequency: Duration(minutes: 15),
-    initialDelay: Duration(minutes: 1),
-    constraints: Constraints(
-      networkType: NetworkType.connected,
-      requiresBatteryNotLow: true,
-      requiresCharging: false,
-      requiresDeviceIdle: false,
-    ),
+    frequency: const Duration(minutes: 15),
+    initialDelay: const Duration(minutes: 1),
     existingWorkPolicy: ExistingWorkPolicy.keep,
     backoffPolicy: BackoffPolicy.linear,
-    backoffPolicyDelay: Duration(minutes: 1),
+    backoffPolicyDelay: const Duration(minutes: 1),
   );
 
   // Initialize Spotify connection
@@ -104,11 +101,11 @@ class MyApp extends StatelessWidget {
         title: 'Musee',
         theme: ThemeData(
           brightness: Brightness.dark,
-          primaryColor: Color(0xFFE57373),
-          scaffoldBackgroundColor: Color(0xFF121212),
+          primaryColor: const Color(0xFFE57373),
+          scaffoldBackgroundColor: const Color(0xFF121212),
           textTheme: GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme)
               .apply(bodyColor: Colors.white),
-          colorScheme: ColorScheme.dark(
+          colorScheme: const ColorScheme.dark(
             primary: Color(0xFFE57373),
             secondary: Color(0xFFFFD54F),
           ),
@@ -117,7 +114,7 @@ class MyApp extends StatelessWidget {
           future: FirebaseAuth.instance.authStateChanges().first,
           builder: (context, snapshot) {
             if (snapshot.hasData) {
-              return Home();
+              return Home(businessLogic: businessLogic);
             } else {
               return LandingPage();
             }
@@ -178,16 +175,17 @@ class _EverythingState extends State<Everything> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF121212), // Darker background color
+      backgroundColor: const Color(0xFF121212), // Darker background color
       body: SafeArea(
         child: ListView(
           padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
           children: [
             SizedBox(height: 16.h),
             _buildQuickMatchButton(),
-            if (widget.connected) _buildCurrentTrackInfo(),
-            SizedBox(height: 24.h),
-            _buildPlaylistsGrid(),
+            SizedBox(height: 150.h),
+            _buildCurrentTrackInfo(),
+
+            // _buildPlaylistsGrid(),
           ],
         ),
       ),
@@ -195,6 +193,7 @@ class _EverythingState extends State<Everything> {
   }
 
   Widget _buildQuickMatchButton() {
+    firestoreDatabaseService.updateActiveStatus();
     return GestureDetector(
       onTap: _navigateToQuickMatch,
       child: Container(
@@ -202,7 +201,7 @@ class _EverythingState extends State<Everything> {
         height: 70.h,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(35),
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: true
@@ -212,10 +211,10 @@ class _EverythingState extends State<Everything> {
           boxShadow: [
             BoxShadow(
               color: _isPaymentComplete
-                  ? Color(0xFF1DB954).withOpacity(0.3)
+                  ? const Color(0xFF1DB954).withOpacity(0.3)
                   : Colors.black12,
               blurRadius: 10,
-              offset: Offset(0, 4),
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -261,67 +260,106 @@ class _EverythingState extends State<Everything> {
   }
 
   Widget _buildCurrentTrackInfo() {
+    Duration duration = Duration(seconds: 5);
+
     return StreamBuilder<PlayerState>(
       stream: SpotifySdk.subscribePlayerState(),
       builder: (context, snapshot) {
-        // Early return if no data or error
         if (snapshot.hasError) {
           print('Error in Spotify stream: ${snapshot.error}');
-          return SizedBox.shrink();
+          return const SizedBox.shrink();
         }
 
         if (!snapshot.hasData || snapshot.data?.track == null) {
-          return SizedBox.shrink();
+          return const SizedBox.shrink();
         }
 
         final track = snapshot.data!.track!;
-        final isPlaying = snapshot.data!.isPaused == false;
-
-        // Update Firebase safely
-        try {
-          firestoreDatabaseService.updateIsUserListening(isPlaying, track.name);
-          firestoreDatabaseService.getUserDatasToMatch(track.name, isPlaying);
-        } catch (e) {
-          print('Error updating Firebase: $e');
-        }
-
+        firestoreDatabaseService.updateIsUserListening(
+          snapshot.data!.isPaused == false,
+          track.name,
+        );
         return Container(
           margin: EdgeInsets.symmetric(vertical: 24.h),
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.white10,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                isPlaying
-                    ? Icons.music_note
-                    : Icons.music_off, // Updated icon based on playing state
-                color: Theme.of(context).colorScheme.secondary,
-              ),
-              SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      track.name,
-                      style: TextStyle(
-                          fontSize: 18.sp, fontWeight: FontWeight.bold),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+              SizedBox(width: 16.w),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: track.imageUri != null
+                        ? FutureBuilder<Uint8List?>(
+                            future: SpotifySdk.getImage(
+                              imageUri: track.imageUri,
+                            ),
+                            builder: (context, imageSnapshot) {
+                              if (imageSnapshot.hasData) {
+                                return Image.memory(
+                                  imageSnapshot.data!,
+                                  width: 430.w,
+                                  height: 430.w,
+                                  fit: BoxFit.cover,
+                                );
+                              }
+                              return Container(
+                                width: 60.w,
+                                height: 60.w,
+                                color: Colors.grey[800],
+                                child: Icon(
+                                  Icons.music_note,
+                                  color: Colors.white54,
+                                  size: 30.sp,
+                                ),
+                              );
+                            },
+                          )
+                        : Container(
+                            width: 60.w,
+                            height: 60.w,
+                            color: Colors.grey[800],
+                            child: Icon(
+                              Icons.music_note,
+                              color: Colors.white54,
+                              size: 30.sp,
+                            ),
+                          ),
+                  ),
+                  SizedBox(height: 14.h),
+                  Text(
+                    track.name,
+                    style: TextStyle(
+                      fontSize: 33.sp,
+                      fontWeight: FontWeight.bold,
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      track.artist?.name ?? '',
-                      style: TextStyle(fontSize: 14.sp, color: Colors.white70),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    track.artist?.name ?? '',
+                    style: TextStyle(
+                      fontSize: 25.sp,
+                      color: Colors.white70,
                     ),
-                  ],
-                ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  // _buildCurrentMatchesInTheListeningSong(track.name),
+                ],
               ),
+              // Icon(
+              //   isPlaying ? Icons.music_note : Icons.music_off,
+              //   color: Theme.of(context).colorScheme.secondary,
+              // ),
             ],
           ),
         );
@@ -344,13 +382,13 @@ class _EverythingState extends State<Everything> {
                   style:
                       TextStyle(color: Theme.of(context).colorScheme.error)));
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return Center(
+          return const Center(
               child: Text('No playlists found',
                   style: TextStyle(color: Colors.white70)));
         } else {
           return GridView.builder(
             shrinkWrap: true,
-            physics: NeverScrollableScrollPhysics(),
+            physics: const NeverScrollableScrollPhysics(),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               childAspectRatio: 0.75,
@@ -373,7 +411,7 @@ class _EverythingState extends State<Everything> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
-          BoxShadow(
+          const BoxShadow(
             color: Colors.black26,
             blurRadius: 5,
             offset: Offset(0, 2),
@@ -393,8 +431,8 @@ class _EverythingState extends State<Everything> {
                   )
                 : Container(
                     color: Theme.of(context).colorScheme.secondary,
-                    child:
-                        Icon(Icons.music_note, color: Colors.white, size: 50),
+                    child: const Icon(Icons.music_note,
+                        color: Colors.white, size: 50),
                   ),
           ),
           // Gradient overlay
@@ -425,7 +463,7 @@ class _EverythingState extends State<Everything> {
                 color: Colors.white,
                 shadows: [
                   Shadow(
-                    offset: Offset(0, 1),
+                    offset: const Offset(0, 1),
                     blurRadius: 3.0,
                     color: Colors.black.withOpacity(0.5),
                   ),
@@ -441,5 +479,84 @@ class _EverythingState extends State<Everything> {
   }
 } // Close _EverythingState class
 
- // Close Everything class
+// Close Everything class
 
+Widget _buildCurrentMatchesInTheListeningSong(String currentTrackName) {
+  return FutureBuilder<UserModel?>(
+      future: firestoreDatabaseService
+          .getTheCurrentMatchesInTheListeningSong(currentTrackName),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const MatchLoadingWidget();
+        }
+
+        if (snapshot.hasError) {
+          return const SizedBox.shrink();
+        }
+
+        if (!snapshot.hasData || snapshot.data == null) {
+          return const SizedBox.shrink();
+        }
+
+        final userData = snapshot.data!;
+
+        return SizedBox(
+          width: 430.w,
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 8.h),
+            child: Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircleAvatar(
+                      radius: 25,
+                      backgroundColor: Colors.grey[300],
+                      backgroundImage: userData.profilePhotos.isNotEmpty &&
+                              userData.profilePhotos.first != null
+                          ? NetworkImage(userData.profilePhotos.first)
+                          : null,
+                      child: (userData.profilePhotos.isEmpty ||
+                              userData.profilePhotos.first == null)
+                          ? const Icon(Icons.person,
+                              size: 25, color: Colors.grey)
+                          : null,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            userData.name ?? 'Anonymous',
+                            style: TextStyle(
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            'Listening to the same song!',
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              color: Colors.grey[600],
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      });
+}
