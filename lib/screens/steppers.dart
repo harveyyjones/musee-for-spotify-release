@@ -8,6 +8,9 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:spotify_project/Business_Logic/firestore_database_service.dart';
 import 'package:spotify_project/Helpers/helpers.dart';
+import 'package:spotify_project/business/Spotify_Logic/constants.dart';
+import 'package:spotify_project/business/Spotify_Logic/services/fetch_artists.dart';
+import 'package:spotify_project/business/Spotify_Logic/services/fetch_top_10_tracks_of_the_user.dart';
 import 'package:spotify_project/main.dart';
 import 'package:spotify_project/screens/quick_match_screen.dart';
 import 'package:spotify_project/screens/register_page.dart';
@@ -20,8 +23,8 @@ TextEditingController _controllerForBiography = TextEditingController();
 TextEditingController _controllerForClinicName = TextEditingController();
 var profilePhoto;
 
-class SteppersForClients extends StatelessWidget {
-  const SteppersForClients({super.key});
+class Steppers extends StatelessWidget {
+  const Steppers({super.key});
 
   static const String _title = '';
 
@@ -51,6 +54,11 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
   List<File> _images = [];
   final FirestoreDatabaseService _firestoreDatabaseService =
       FirestoreDatabaseService();
+
+  // Add new controllers and state variables
+  final TextEditingController _ageController = TextEditingController();
+  String _selectedGender = '';
+  List<String> _interestedIn = [];
 
   Future<File?> cropImage(File imageFile) async {
     CroppedFile? croppedImage = await ImageCropper().cropImage(
@@ -124,7 +132,11 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
               if (_index > 0) setState(() => _index -= 1);
             },
             onStepContinue: () {
-              if (_index < 1) setState(() => _index += 1);
+              if (_validateCurrentStep()) {
+                if (_index < 4) {
+                  setState(() => _index += 1);
+                }
+              }
             },
             onStepTapped: (int index) {
               setState(() => _index = index);
@@ -134,43 +146,63 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
                 padding: EdgeInsets.only(top: 20.h),
                 child: Row(
                   children: <Widget>[
-                    if (_index < 1)
+                    if (_index > 0)
+                      Padding(
+                        padding: EdgeInsets.only(right: 16.w),
+                        child: ElevatedButton(
+                          onPressed: details.onStepCancel,
+                          child: Text('Back',
+                              style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (_index < 4)
                       ElevatedButton(
                         onPressed: details.onStepContinue,
                         child:
                             Text('Next', style: TextStyle(color: Colors.white)),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Color(0xFF1DB954), // Spotify green
+                          backgroundColor: Color(0xFF1DB954),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                       ),
-                    if (_index > 0)
-                      ElevatedButton(
-                        onPressed: details.onStepCancel,
-                        child:
-                            Text('Back', style: TextStyle(color: Colors.white)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.grey,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                    if (_index == 1)
+                    if (_index == 4)
                       ElevatedButton(
                         onPressed: () async {
-                          await uploadImagesToDatabase();
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(builder: (context) => Home()),
-                            (Route<dynamic> route) => false,
-                          );
+                          try {
+                            await _firestoreDatabaseService.saveUser(
+                              name: _controllerForName.text,
+                              age: int.parse(_ageController.text),
+                              gender: _selectedGender,
+                              interestedIn: _interestedIn,
+                            );
+                            await uploadImagesToDatabase();
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(builder: (context) => Home()),
+                              (Route<dynamic> route) => false,
+                            );
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text(
+                                      'Error saving profile: ${e.toString()}')),
+                            );
+                          }
                         },
                         child: Text('Finish',
                             style: TextStyle(color: Colors.white)),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Color(0xFF1DB954), // Spotify green
+                          backgroundColor: Color(0xFF1DB954),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                       ),
                   ],
@@ -181,12 +213,29 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
               Step(
                 isActive: _index >= 0,
                 state: _index > 0 ? StepState.complete : StepState.indexed,
-                title: Text('Info', style: TextStyle(color: Colors.white)),
-                content: _buildInfoStep(),
+                title: Text('Name', style: TextStyle(color: Colors.white)),
+                content: _buildNameStep(),
               ),
               Step(
                 isActive: _index >= 1,
                 state: _index > 1 ? StepState.complete : StepState.indexed,
+                title: Text('Age', style: TextStyle(color: Colors.white)),
+                content: _buildAgeStep(),
+              ),
+              Step(
+                isActive: _index >= 2,
+                state: _index > 2 ? StepState.complete : StepState.indexed,
+                title: Text('Gender', style: TextStyle(color: Colors.white)),
+                content: _buildGenderStep(),
+              ),
+              Step(
+                isActive: _index >= 3,
+                state: _index > 3 ? StepState.complete : StepState.indexed,
+                title: Text('Interest', style: TextStyle(color: Colors.white)),
+                content: _buildInterestsStep(),
+              ),
+              Step(
+                isActive: _index >= 4,
                 title: Text('Photos', style: TextStyle(color: Colors.white)),
                 content: _buildPhotoStep(),
               ),
@@ -197,11 +246,11 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
     );
   }
 
-  Widget _buildInfoStep() {
+  Widget _buildNameStep() {
     return Column(
       children: [
         Text(
-          "Complete your profile",
+          "What's your name?",
           style: TextStyle(
               fontSize: 24.sp,
               color: Colors.white,
@@ -211,15 +260,146 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
         PersonalInfoNameBar(
           controller: _controllerForName,
           methodToRun: _firestoreDatabaseService.updateName,
-          label: "What's your name?",
+          label: "Your name",
           lineCount: 1,
         ),
         SizedBox(height: 10.h),
         Text(
-          "This will be seen by everyone.",
+          "This will be shown to others",
           style: TextStyle(fontSize: 16.sp, color: Colors.grey[400]),
         ),
       ],
+    );
+  }
+
+  Widget _buildAgeStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "How old are you?",
+          style: TextStyle(
+              fontSize: 24.sp,
+              color: Colors.white,
+              fontWeight: FontWeight.bold),
+        ),
+        SizedBox(height: 20.h),
+        Container(
+          decoration: BoxDecoration(
+            color: Color(0xFF282828),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: EdgeInsets.all(16),
+          child: TextField(
+            controller: _ageController,
+            keyboardType: TextInputType.number,
+            style: TextStyle(color: Colors.white, fontSize: 24.sp),
+            decoration: InputDecoration(
+              labelText: 'Enter your age',
+              labelStyle: TextStyle(color: Colors.grey[400]),
+              border: InputBorder.none,
+              focusedBorder: InputBorder.none,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGenderStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "What's your gender?",
+          style: TextStyle(
+              fontSize: 24.sp,
+              color: Colors.white,
+              fontWeight: FontWeight.bold),
+        ),
+        SizedBox(height: 20.h),
+        Row(
+          children: [
+            Radio<String>(
+              value: 'male',
+              groupValue: _selectedGender,
+              onChanged: (value) => setState(() => _selectedGender = value!),
+            ),
+            Text('Male', style: TextStyle(color: Colors.white)),
+            Radio<String>(
+              value: 'female',
+              groupValue: _selectedGender,
+              onChanged: (value) => setState(() => _selectedGender = value!),
+            ),
+            Text('Female', style: TextStyle(color: Colors.white)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInterestsStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Who are you interested in?",
+          style: TextStyle(
+              fontSize: 24.sp,
+              color: Colors.white,
+              fontWeight: FontWeight.bold),
+        ),
+        SizedBox(height: 20.h),
+        Container(
+          decoration: BoxDecoration(
+            color: Color(0xFF282828),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              _buildInterestOption('male', 'Men'),
+              Divider(color: Colors.white12),
+              _buildInterestOption('female', 'Women'),
+            ],
+          ),
+        ),
+        SizedBox(height: 10.h),
+        Text(
+          "Select all that apply",
+          style: TextStyle(fontSize: 16.sp, color: Colors.grey[400]),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInterestOption(String value, String label) {
+    return ListTile(
+      title: Text(
+        label,
+        style: TextStyle(color: Colors.white, fontSize: 18.sp),
+      ),
+      leading: Checkbox(
+        value: _interestedIn.contains(value),
+        onChanged: (checked) {
+          setState(() {
+            if (checked!) {
+              _interestedIn.add(value);
+            } else {
+              _interestedIn.remove(value);
+            }
+          });
+        },
+        activeColor: Color(0xFF1DB954),
+      ),
+      onTap: () {
+        setState(() {
+          if (_interestedIn.contains(value)) {
+            _interestedIn.remove(value);
+          } else {
+            _interestedIn.add(value);
+          }
+        });
+      },
     );
   }
 
@@ -351,5 +531,347 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
         ),
       ),
     ));
+  }
+
+  bool _validateCurrentStep() {
+    switch (_index) {
+      case 0: // Name step
+        if (_controllerForName.text.isEmpty) {
+          _showError('Please enter your name');
+          return false;
+        }
+        return true;
+
+      case 1: // Age step
+        if (_ageController.text.isEmpty ||
+            int.tryParse(_ageController.text) == null) {
+          _showError('Please enter a valid age');
+          return false;
+        }
+        int age = int.parse(_ageController.text);
+        if (age < 18 || age > 100) {
+          _showError('Age must be between 18 and 100');
+          return false;
+        }
+        return true;
+
+      case 2: // Gender step
+        if (_selectedGender.isEmpty) {
+          _showError('Please select your gender');
+          return false;
+        }
+        return true;
+
+      case 3: // Interests step
+        if (_interestedIn.isEmpty) {
+          _showError('Please select at least one interest');
+          return false;
+        }
+        return true;
+
+      case 4: // Photos step
+        if (_images.isEmpty) {
+          _showError('Please add at least one photo');
+          return false;
+        }
+        return true;
+
+      default:
+        return true;
+    }
+  }
+
+  // Add initialization and disposal of controllers
+  @override
+  void initState() {
+    super.initState();
+    // Pre-fill data if user is editing profile
+    _loadExistingUserData();
+  }
+
+  @override
+  void dispose() {
+    _controllerForName.dispose();
+    _ageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadExistingUserData() async {
+    try {
+      final userData = await _firestoreDatabaseService.getUserData();
+      if (userData != null) {
+        setState(() {
+          _controllerForName.text = userData.name ?? '';
+          _ageController.text = userData.age?.toString() ?? '';
+          _selectedGender = userData.gender ?? '';
+          _interestedIn = List<String>.from(userData.interestedIn ?? []);
+        });
+      }
+    } catch (e) {
+      print('Error loading user data: $e');
+    }
+  }
+
+  // Add methods for image handling
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final image = await ImagePicker().pickImage(source: source);
+      if (image == null) return;
+
+      File? img = File(image.path);
+      img = await _cropImage(img);
+
+      if (img != null && _images.length < 4) {
+        setState(() => _images.add(img!));
+      }
+    } catch (e) {
+      _showError('Error picking image: ${e.toString()}');
+    }
+  }
+
+  Future<File?> _cropImage(File imageFile) async {
+    try {
+      CroppedFile? croppedImage = await ImageCropper().cropImage(
+        sourcePath: imageFile.path,
+        aspectRatio: CropAspectRatio(ratioX: 1, ratioY: 1),
+        compressQuality: 70,
+        maxWidth: 1080,
+        maxHeight: 1080,
+      );
+      return croppedImage != null ? File(croppedImage.path) : null;
+    } catch (e) {
+      _showError('Error cropping image: ${e.toString()}');
+      return null;
+    }
+  }
+
+  Future<void> _uploadImages() async {
+    if (_images.isEmpty) return;
+
+    try {
+      List<String> photoUrls = [];
+      for (var i = 0; i < _images.length; i++) {
+        final ref = FirebaseStorage.instance
+            .ref()
+            .child("users")
+            .child(currentUser!.uid)
+            .child("profile_$i.jpg");
+
+        final uploadTask = ref.putFile(_images[i]);
+        final snapshot = await uploadTask.whenComplete(() {});
+        final url = await snapshot.ref.getDownloadURL();
+        photoUrls.add(url);
+      }
+
+      await _firestoreDatabaseService.updateUserProfileImages(
+        profilePhotos: photoUrls,
+      );
+    } catch (e) {
+      _showError('Error uploading images: ${e.toString()}');
+    }
+  }
+
+  // Add final submission method
+  Future<void> _finishProfileSetup() async {
+    await _handleAsyncOperation(
+      () async {
+        // Upload images first
+        await _uploadImages();
+
+        // Fetch and save top artists
+        try {
+          final spotifyService = SpotifyServiceForTopArtists(accessToken);
+          final artists = await spotifyService.fetchArtists(accessToken);
+          await _firestoreDatabaseService.updateTopArtists(artists.items);
+          print('Artists saved successfully');
+          print(artists.items);
+          print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx');
+        } catch (e) {
+          print('Error fetching/saving artists: $e');
+        }
+
+        // Fetch and save top tracks
+        try {
+          final tracks =
+              await SpotifyServiceForTracks(accessToken).fetchTracks();
+
+          await _firestoreDatabaseService.updateTopTracks(tracks);
+          print('Tracks saved successfully');
+          print(tracks);
+          print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx');
+        } catch (e) {
+          print('Error fetching/saving tracks: $e');
+        }
+
+        // Save user data
+        await _firestoreDatabaseService.saveUser(
+          name: _controllerForName.text,
+          age: int.parse(_ageController.text),
+          gender: _selectedGender,
+          interestedIn: _interestedIn,
+        );
+
+        // Navigate after successful completion
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => Home()),
+          (Route<dynamic> route) => false,
+        );
+      },
+      'Profile setup completed successfully!',
+    );
+  }
+
+  // Add custom button builder
+  Widget _buildStepperControls() {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 20.h),
+      child: Row(
+        children: [
+          if (_index > 0)
+            ElevatedButton(
+              onPressed: () => setState(() => _index -= 1),
+              child: Text('Back', style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.grey,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          SizedBox(width: 16.w),
+          ElevatedButton(
+            onPressed: _index == 4
+                ? _finishProfileSetup
+                : () {
+                    if (_validateCurrentStep()) {
+                      setState(() => _index += 1);
+                    }
+                  },
+            child: Text(
+              _index == 4 ? 'Finish' : 'Next',
+              style: TextStyle(color: Colors.white),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color(0xFF1DB954),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Error handling methods
+  void _showError(String message) {
+    _showSnackBar(
+      message: message,
+      backgroundColor: Colors.red[700]!,
+      icon: Icons.error_outline,
+    );
+  }
+
+  void _showSuccess(String message) {
+    _showSnackBar(
+      message: message,
+      backgroundColor: Color(0xFF1DB954),
+      icon: Icons.check_circle_outline,
+    );
+  }
+
+  void _showSnackBar({
+    required String message,
+    required Color backgroundColor,
+    required IconData icon,
+    Duration duration = const Duration(seconds: 3),
+  }) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(icon, color: Colors.white),
+            SizedBox(width: 8.w),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16.sp,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: backgroundColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        margin: EdgeInsets.all(16),
+        duration: duration,
+        action: SnackBarAction(
+          label: 'Dismiss',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
+    );
+  }
+
+  // Loading indicator
+  void _showLoadingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Center(
+          child: Container(
+            padding: EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Color(0xFF282828),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1DB954)),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Please wait...',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16.sp,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Helper method to handle async operations with loading state
+  Future<void> _handleAsyncOperation(
+    Future<void> Function() operation,
+    String successMessage,
+  ) async {
+    try {
+      _showLoadingDialog();
+      await operation();
+      Navigator.of(context).pop(); // Dismiss loading dialog
+      _showSuccess(successMessage);
+    } catch (e) {
+      Navigator.of(context).pop(); // Dismiss loading dialog
+      _showError(e.toString());
+    }
   }
 }

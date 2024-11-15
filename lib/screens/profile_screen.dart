@@ -1,4 +1,7 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:spotify_project/Business_Logic/firestore_database_service.dart';
@@ -70,28 +73,15 @@ class _ProfileScreenState extends State<ProfileScreen>
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(
-            backgroundColor: Colors.black,
+            backgroundColor: const Color(0xFF121212),
             body: Center(
-                child: CircularProgressIndicator(color: Color(0xFF1DB954))),
-          );
-        }
-
-        if (snapshot.hasError) {
-          return Scaffold(
-            backgroundColor: Colors.black,
-            body: Center(
-                child: Text('Error: ${snapshot.error}',
-                    style: TextStyle(color: Colors.white))),
+              child: CircularProgressIndicator(color: Color(0xFF6366F1)),
+            ),
           );
         }
 
         if (!snapshot.hasData || snapshot.data == null) {
-          return Scaffold(
-            backgroundColor: Colors.black,
-            body: Center(
-                child: Text('No data available',
-                    style: TextStyle(color: Colors.white))),
-          );
+          return _buildErrorScreen('No data available');
         }
 
         final data = snapshot.data!;
@@ -101,41 +91,36 @@ class _ProfileScreenState extends State<ProfileScreen>
         final genres = _prepareGenres(topArtists);
 
         return Scaffold(
-          backgroundColor: Colors.black,
+          backgroundColor: const Color(0xFF121212),
+          extendBodyBehindAppBar: true,
+          appBar: PreferredSize(
+            preferredSize: Size.fromHeight(0),
+            child: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              systemOverlayStyle: SystemUiOverlayStyle.light,
+            ),
+          ),
           body: Stack(
             children: [
-              CustomScrollView(
-                controller: _scrollController,
-                slivers: [
-                  SliverToBoxAdapter(child: _buildUserProfile(userData)),
-                  SliverToBoxAdapter(child: _buildGenresWidget(genres)),
-                  if (topArtists != null && topArtists.isNotEmpty)
-                    SliverToBoxAdapter(child: _buildTopArtists(topArtists)),
-                  SliverToBoxAdapter(
-                      child: Divider(
-                          thickness: 1, color: Colors.white.withOpacity(0.5))),
-                  if (topTracks != null && topTracks.isNotEmpty)
-                    SliverToBoxAdapter(child: _buildTopTracks(topTracks)),
-                ],
-              ),
-              Positioned(
-                top: 40,
-                left: 16,
-                child: GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
-                  child: Container(
-                    padding: EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.arrow_back_ios,
-                      color: Colors.white,
-                      size: 24,
-                    ),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFF1A1A1A),
+                      Colors.black,
+                      const Color(0xFF1A1A1A),
+                    ],
                   ),
                 ),
+              ),
+              CustomScrollView(
+                controller: _scrollController,
+                physics: const BouncingScrollPhysics(),
+                slivers: _buildSliverSections(
+                    userData, genres, topArtists, topTracks),
               ),
             ],
           ),
@@ -144,122 +129,109 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _buildTopArtists(List<dynamic> artists) {
+  List<Widget> _buildSliverSections(
+    dynamic userData,
+    List<String> genres,
+    List<dynamic>? topArtists,
+    List<dynamic>? topTracks,
+  ) {
+    return [
+      SliverToBoxAdapter(
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.75,
+          child: Stack(
+            children: [
+              _buildProfileImages(userData),
+              _buildGradientOverlay(),
+              _buildProfileInfo(userData),
+              _buildBackButton(),
+              _buildImageIndicators(userData.profilePhotos?.length ?? 1),
+            ],
+          ),
+        ),
+      ),
+      if (genres.isNotEmpty)
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.only(top: 24.h),
+            child: _buildGenresWidget(genres),
+          ),
+        ),
+      if (topArtists != null && topArtists.isNotEmpty)
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.only(top: 24.h),
+            child: _buildTopArtists(topArtists),
+          ),
+        ),
+      if (topTracks != null && topTracks.isNotEmpty)
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.only(top: 24.h),
+            child: _buildTopTracks(topTracks),
+          ),
+        ),
+      SliverPadding(padding: EdgeInsets.only(bottom: 24.h)),
+    ];
+  }
+
+  Widget _buildGenresWidget(List<String> genres) {
+    if (genres.isEmpty) return SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Text(
-            'Top Artists',
-            style: TextStyle(
-              color: Color(0xFF1DB954),
-              fontSize: 24.sp,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
-          ),
+          padding: EdgeInsets.symmetric(horizontal: 20.w),
+          child: _buildGradientTitle('Music Interests'),
         ),
-        Container(
-          height: 160,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: artists.length > 5 ? 5 : artists.length,
-            itemBuilder: (context, index) {
-              final artist = artists[index] as Map<String, dynamic>;
-              return Container(
-                width: 120,
-                margin: EdgeInsets.symmetric(horizontal: 8),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Color(0xFF1DB954), width: 2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Color(0xFF1DB954).withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: ClipOval(
-                        child: Image.network(
-                          artist['imageUrl'] ?? '',
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Icon(Icons.person, color: Color(0xFF1DB954)),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      artist['name'] ?? '',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 23.sp,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              );
-            },
+        SizedBox(height: 16.h),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: BouncingScrollPhysics(),
+          padding: EdgeInsets.symmetric(horizontal: 20.w),
+          child: Row(
+            children: genres.map((genre) => _buildGenreChip(genre)).toList(),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildGenresWidget(List<String> genres) {
-    if (genres.isEmpty) {
-      return SizedBox.shrink();
-    }
+  Widget _buildGradientTitle(String text) {
+    return Text(
+      text,
+      style: GoogleFonts.poppins(
+        fontSize: 20.sp,
+        fontWeight: FontWeight.bold,
+        foreground: Paint()
+          ..shader = LinearGradient(
+            colors: const [
+              Color(0xFF6366F1),
+              Color(0xFF9333EA),
+            ],
+          ).createShader(Rect.fromLTWH(0, 0, 200, 70)),
+      ),
+    );
+  }
 
+  Widget _buildTopArtists(List<dynamic> artists) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Text(
-            'Music Interests',
-            style: TextStyle(
-              color: Color(0xFF1DB954),
-              fontSize: 24.sp,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
-          ),
+          padding: EdgeInsets.symmetric(horizontal: 20.w),
+          child: _buildGradientTitle('Top Artists'),
         ),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: genres.map((genre) {
-              return Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Color(0xFF1DB954).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Color(0xFF1DB954)),
-                ),
-                child: Text(
-                  genre,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              );
-            }).toList(),
+        SizedBox(height: 16.h),
+        SizedBox(
+          height: 180.h,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            physics: BouncingScrollPhysics(),
+            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            itemCount: min(artists.length, 5),
+            itemBuilder: (context, index) => _buildArtistItem(artists[index]),
           ),
         ),
       ],
@@ -270,11 +242,11 @@ class _ProfileScreenState extends State<ProfileScreen>
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
           colors: [
-            Colors.black,
-            Color(0xFF1DB954).withOpacity(0.1),
+            Colors.transparent,
+            Color(0xFF6366F1).withOpacity(0.05),
           ],
         ),
       ),
@@ -283,60 +255,14 @@ class _ProfileScreenState extends State<ProfileScreen>
         children: [
           Padding(
             padding: EdgeInsets.all(20.w),
-            child: Text(
-              'Top Tracks',
-              style: TextStyle(
-                color: Color(0xFF1DB954),
-                fontSize: 28.sp,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2,
-              ),
-            ),
+            child: _buildGradientTitle('Top Tracks'),
           ),
           ListView.builder(
             shrinkWrap: true,
             physics: NeverScrollableScrollPhysics(),
-            itemCount: tracks.length > 5 ? 5 : tracks.length,
-            itemBuilder: (context, index) {
-              final track = tracks[index] as Map<String, dynamic>;
-              return ListTile(
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-                leading: ClipRRect(
-                  borderRadius: BorderRadius.circular(8.r),
-                  child: Image.network(
-                    track['album']?['images']?[0]?['url'] ?? '',
-                    width: 60.w,
-                    height: 60.w,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      width: 60.w,
-                      height: 60.w,
-                      color: Color(0xFF1DB954).withOpacity(0.2),
-                      child: Icon(Icons.music_note, color: Color(0xFF1DB954)),
-                    ),
-                  ),
-                ),
-                title: Text(
-                  track['name'] ?? '',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                subtitle: Text(
-                  (track['artists'] as List<dynamic>?)
-                          ?.map((artist) => artist['name'])
-                          .join(', ') ??
-                      '',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
-                    fontSize: 14.sp,
-                  ),
-                ),
-              );
-            },
+            itemCount: min(tracks.length, 5),
+            itemBuilder: (context, index) =>
+                _buildTrackItem(tracks[index], index),
           ),
         ],
       ),
@@ -484,7 +410,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               Text(
                 userData.biography ?? "No biography available.",
                 style: TextStyle(
-                  fontSize: 16.sp,
+                  fontSize: 28.sp,
                   color: Colors.white.withOpacity(0.7),
                 ),
                 maxLines: 2,
@@ -539,5 +465,565 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
 
     return uniqueGenres.toList()..sort();
+  }
+
+  Widget _buildProfileImages(dynamic userData) {
+    List<String> profilePhotos = userData?.profilePhotos ?? [];
+    String defaultImage =
+        "https://static.vecteezy.com/system/resources/previews/009/734/564/non_2x/default-avatar-profile-icon-of-social-media-user-vector.jpg";
+
+    if (profilePhotos.isEmpty) {
+      profilePhotos = [defaultImage];
+    }
+
+    return Stack(
+      children: [
+        // Main Image
+        Container(
+          height: MediaQuery.of(context).size.height *
+              0.55, // Changed from 0.75 to 0.55
+          width: double.infinity,
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: profilePhotos.length,
+            onPageChanged: (index) =>
+                setState(() => _currentImageIndex = index),
+            itemBuilder: (context, index) => Image.network(
+              profilePhotos[index],
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                color: const Color(0xFF1A1A1A),
+                child: Icon(Icons.error, color: Color(0xFF6366F1), size: 40.sp),
+              ),
+              loadingBuilder: (context, child, progress) => progress == null
+                  ? child
+                  : Container(
+                      color: const Color(0xFF1A1A1A),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF6366F1),
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+        ),
+
+        // Image Indicators
+        if (profilePhotos.length > 1)
+          Positioned(
+            top: 40.h,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                profilePhotos.length,
+                (index) => Container(
+                  margin: EdgeInsets.symmetric(horizontal: 4.w),
+                  width: 8.w,
+                  height: 8.w,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _currentImageIndex == index
+                        ? Color(0xFF6366F1)
+                        : Colors.white.withOpacity(0.5),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildGenreChip(String genre) {
+    return Container(
+      margin: EdgeInsets.only(right: 8.w),
+      padding: EdgeInsets.symmetric(
+        horizontal: 16.w,
+        vertical: 8.h,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF6366F1).withOpacity(0.1),
+            Color(0xFF9333EA).withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(
+          color: Color(0xFF6366F1).withOpacity(0.5),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0xFF6366F1).withOpacity(0.1),
+            blurRadius: 8,
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Text(
+        genre,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 14.sp,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildArtistItem(Map<String, dynamic> artist) {
+    return Container(
+      width: 140.w,
+      margin: EdgeInsets.only(right: 16.w),
+      child: Column(
+        children: [
+          Container(
+            width: 120.w,
+            height: 120.w,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF6366F1).withOpacity(0.2),
+                  Color(0xFF9333EA).withOpacity(0.2),
+                ],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0xFF6366F1).withOpacity(0.2),
+                  blurRadius: 16,
+                  offset: Offset(0, 8),
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: Image.network(
+                artist['imageUrl'] ?? '',
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Center(
+                  child: Icon(
+                    Icons.person,
+                    size: 40.sp,
+                    color: Colors.white.withOpacity(0.5),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SizedBox(height: 12.h),
+          Text(
+            artist['name'] ?? '',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: 2,
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrackItem(Map<String, dynamic> track, int index) {
+    return Container(
+      margin: EdgeInsets.symmetric(
+        vertical: 8.h,
+        horizontal: 20.w,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF6366F1).withOpacity(0.1),
+            Color(0xFF9333EA).withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: Color(0xFF6366F1).withOpacity(0.3),
+        ),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(12.w),
+        child: Row(
+          children: [
+            Container(
+              width: 50.w,
+              height: 50.w,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0xFF6366F1).withOpacity(0.2),
+                    blurRadius: 8,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8.r),
+                child: Image.network(
+                  track['album']?['images']?[0]?['url'] ?? '',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: Color(0xFF6366F1).withOpacity(0.2),
+                    child: Icon(
+                      Icons.music_note,
+                      color: Color(0xFF6366F1),
+                      size: 24.sp,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(width: 16.w),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    track['name'] ?? '',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    (track['artists'] as List<dynamic>?)
+                            ?.map((artist) => artist['name'])
+                            .join(', ') ??
+                        '',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 14.sp,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 32.w,
+              height: 32.w,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFF6366F1).withOpacity(0.1),
+              ),
+              child: Center(
+                child: Icon(
+                  Icons.play_arrow_rounded,
+                  color: Color(0xFF6366F1),
+                  size: 20.sp,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGradientOverlay() {
+    return Positioned.fill(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.transparent,
+              Colors.black.withOpacity(0.2),
+              Colors.black.withOpacity(0.8),
+            ],
+            stops: const [0.0, 0.5, 1.0],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileInfo(dynamic userData) {
+    return Positioned(
+      bottom: 20.h,
+      left: 20.w,
+      right: 20.w,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                userData?.name ?? 'No Name',
+                style: GoogleFonts.poppins(
+                  fontSize: 55.sp,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  height: 1.2,
+                  shadows: [
+                    Shadow(
+                      offset: Offset(0, 2),
+                      blurRadius: 4,
+                      color: Colors.black.withOpacity(0.5),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: 14.w),
+              Text(
+                userData?.age != null ? ' ${userData.age}' : '',
+                style: GoogleFonts.poppins(
+                  fontSize: 45.sp,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  height: 1.2,
+                  shadows: [
+                    Shadow(
+                      offset: Offset(0, 2),
+                      blurRadius: 4,
+                      color: Colors.black.withOpacity(0.5),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 12.h),
+          if (userData?.songName?.isNotEmpty == true) ...[
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Color(0xFF6366F1).withOpacity(0.2),
+                    Color(0xFF9333EA).withOpacity(0.2),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(20.r),
+                border: Border.all(color: Color(0xFF6366F1).withOpacity(0.5)),
+              ),
+              child: Text(
+                userData.songName,
+                style: TextStyle(
+                  fontSize: 25.sp,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            SizedBox(height: 12.h),
+          ],
+          if (userData?.biography?.isNotEmpty == true) ...[
+            Text(
+              userData.biography,
+              style: TextStyle(
+                fontSize: 33.sp,
+                color: Colors.white.withOpacity(0.8),
+                height: 1.4,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            SizedBox(height: 20.h),
+          ],
+          _buildMessageButton(userData),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackButton() {
+    return Positioned(
+      top: 40.h,
+      left: 20.w,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.2),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              spreadRadius: 0,
+            ),
+          ],
+        ),
+        child: IconButton(
+          icon: Icon(Icons.arrow_back_ios, size: 20.sp),
+          color: Colors.white,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageIndicators(int count) {
+    return Positioned(
+      top: 40.h,
+      left: 0,
+      right: 0,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(
+          count,
+          (index) => Container(
+            margin: EdgeInsets.symmetric(horizontal: 4.w),
+            width: 8.w,
+            height: 8.w,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _currentImageIndex == index
+                  ? Color(0xFF6366F1)
+                  : Colors.white.withOpacity(0.5),
+              boxShadow: _currentImageIndex == index
+                  ? [
+                      BoxShadow(
+                        color: Color(0xFF6366F1).withOpacity(0.5),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      )
+                    ]
+                  : null,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMessageButton(dynamic userData) {
+    String defaultImage =
+        "https://static.vecteezy.com/system/resources/previews/009/734/564/non_2x/default-avatar-profile-icon-of-social-media-user-vector.jpg";
+
+    return Container(
+      width: double.infinity,
+      height: 50.h,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF6366F1),
+            Color(0xFF9333EA),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(25.r),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0xFF6366F1).withOpacity(0.3),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(25.r),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ChatScreen(
+                  widget.uid,
+                  userData.profilePhotos?.isNotEmpty == true
+                      ? userData.profilePhotos[0]
+                      : defaultImage,
+                  userData.name,
+                ),
+              ),
+            );
+          },
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.message_rounded,
+                  color: Colors.white,
+                  size: 20.sp,
+                ),
+                SizedBox(width: 8.w),
+                Text(
+                  'Message',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorScreen(String message) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF121212),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              size: 64.sp,
+              color: Color(0xFF6366F1),
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              message,
+              style: GoogleFonts.poppins(
+                fontSize: 18.sp,
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 24.h),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _combinedFuture = _loadAllData();
+                });
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFF6366F1),
+                padding: EdgeInsets.symmetric(
+                  horizontal: 24.w,
+                  vertical: 12.h,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20.r),
+                ),
+              ),
+              child: Text(
+                'Retry',
+                style: GoogleFonts.poppins(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

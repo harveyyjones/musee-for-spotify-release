@@ -45,6 +45,61 @@ class _MessageScreenState extends State<MessageScreen> {
       bottomNavigationBar: BottomBar(selectedIndex: 3),
       body: Column(
         children: [
+          Container(
+            height: 110.h,
+            child: FutureBuilder<Set<UserModel>>(
+              future: firestoreDatabaseService.getLikedPeople(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(
+                      child:
+                          CircularProgressIndicator(color: Color(0xFF1DB954)));
+                }
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No liked users yet',
+                      style: TextStyle(color: Colors.white70, fontSize: 16.sp),
+                    ),
+                  );
+                }
+                return ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                  itemCount: snapshot.data!.length,
+                  itemBuilder: (context, index) {
+                    UserModel user = snapshot.data!.elementAt(index);
+                    return Padding(
+                      padding: EdgeInsets.only(right: 16.w),
+                      child: Column(
+                        children: [
+                          CircleAvatar(
+                            radius: 30.r,
+                            backgroundImage: user.profilePhotos.isNotEmpty
+                                ? NetworkImage(user.profilePhotos[0])
+                                : null,
+                            backgroundColor: Color(0xFF1DB954),
+                            child: user.profilePhotos.isEmpty
+                                ? Icon(Icons.person, color: Colors.white)
+                                : null,
+                          ),
+                          SizedBox(height: 8.h),
+                          Text(
+                            user.name ?? 'Unknown',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12.sp,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
           Expanded(
             child: FutureBuilder<List<Conversations>>(
               future: _chatDatabaseService.getConversations(),

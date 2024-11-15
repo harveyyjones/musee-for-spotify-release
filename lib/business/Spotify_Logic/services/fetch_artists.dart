@@ -6,12 +6,12 @@ class SpotifyServiceForTopArtists {
 
   SpotifyServiceForTopArtists(this.accessToken);
 
-  Future<SpotifyArtistsResponse> fetchArtists() async {
+  Future<SpotifyArtistsResponse> fetchArtists(String _accessToken) async {
     String url = 'https://api.spotify.com/v1/me/top/artists?limit=10&offset=0';
     final response = await http.get(
       Uri.parse(url),
       headers: {
-        'Authorization': 'Bearer $accessToken',
+        'Authorization': 'Bearer $_accessToken',
       },
     );
 
@@ -52,7 +52,8 @@ class SpotifyArtistsResponse {
       offset: json['offset'] ?? 0,
       previous: json['previous'] ?? 'default_previous',
       total: json['total'] ?? 0,
-      items: List<Artist>.from(json['items']?.map((item) => Artist.fromJson(item)) ?? []),
+      items: List<Artist>.from(
+          json['items']?.map((item) => Artist.fromJson(item)) ?? []),
     );
   }
 }
@@ -92,13 +93,15 @@ class Artist {
             json['followers'] as Map<String, dynamic>? ?? {}),
         genres: (json['genres'] as List<dynamic>?)
                 ?.map((e) => e.toString())
-                .toList() ?? [],
+                .toList() ??
+            [],
         href: json['href']?.toString() ?? 'default_href',
         id: json['id']?.toString() ?? 'default_id',
         images: (json['images'] as List<dynamic>?)
                 ?.map((image) =>
                     ImageOftheArtist.fromJson(image as Map<String, dynamic>))
-                .toList() ?? [],
+                .toList() ??
+            [],
         name: json['name']?.toString() ?? 'Unknown Artist',
         popularity: json['popularity'] as int? ?? 0,
         type: json['type']?.toString() ?? 'default_type',

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/ui/utils/stream_subscriber_mixin.dart';
@@ -12,6 +13,7 @@ import 'package:spotify_project/Helpers/helpers.dart';
 import 'package:spotify_project/business/Spotify_Logic/constants.dart';
 import 'package:spotify_project/business/business_logic.dart';
 import 'package:spotify_project/screens/landing_screen.dart';
+import 'package:spotify_project/screens/own_profile_screens_for_clients.dart';
 import 'package:spotify_project/screens/register_page.dart';
 import 'package:spotify_project/screens/steppers.dart';
 import 'package:spotify_project/widgets/bottom_bar.dart';
@@ -114,7 +116,8 @@ class MyApp extends StatelessWidget {
           future: FirebaseAuth.instance.authStateChanges().first,
           builder: (context, snapshot) {
             if (snapshot.hasData) {
-              return Home(businessLogic: businessLogic);
+              // return Home(businessLogic: businessLogic);
+              return OwnProfileScreenForClients();
             } else {
               return LandingPage();
             }
@@ -152,18 +155,43 @@ class Everything extends StatefulWidget {
   State<Everything> createState() => _EverythingState();
 }
 
-class _EverythingState extends State<Everything> {
+class _EverythingState extends State<Everything>
+    with SingleTickerProviderStateMixin {
   late Future<List<Playlist>> futurePlaylists;
   bool _isPaymentComplete = false;
   bool _loading = false;
   final FirestoreDatabaseService firestoreDatabaseService =
       FirestoreDatabaseService();
 
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  // Add MediaQuery variables
+  late double screenWidth;
+  late double screenHeight;
+  late double blockSizeHorizontal;
+  late double blockSizeVertical;
+
   @override
   void initState() {
     super.initState();
     futurePlaylists = fetchPlaylists();
     firestoreDatabaseService.updateActiveStatus();
+
+    _pulseController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
   }
 
   Future<List<Playlist>> fetchPlaylists() async {
@@ -174,82 +202,234 @@ class _EverythingState extends State<Everything> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF121212), // Darker background color
-      body: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-          children: [
-            SizedBox(height: 16.h),
-            _buildQuickMatchButton(),
-            SizedBox(height: 150.h),
-            _buildCurrentTrackInfo(),
+    // Initialize MediaQuery dimensions
+    screenWidth = MediaQuery.of(context).size.width;
+    screenHeight = MediaQuery.of(context).size.height;
+    blockSizeHorizontal = screenWidth / 100;
+    blockSizeVertical = screenHeight / 100;
 
-            // _buildPlaylistsGrid(),
-          ],
+    return Scaffold(
+      backgroundColor: const Color(0xFF121212),
+      body: SafeArea(
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.grey[900]!,
+                Colors.black,
+                Colors.grey[900]!,
+              ],
+            ),
+          ),
+          child: ListView(
+            padding: EdgeInsets.symmetric(
+              horizontal: blockSizeHorizontal * 5, // 5% of screen width
+              vertical: blockSizeVertical * 3, // 3% of screen height
+            ),
+            children: [
+              _buildStatusBar(),
+              SizedBox(height: blockSizeVertical * 4),
+              _buildQuickMatchButton(),
+              SizedBox(height: blockSizeVertical * 5),
+              _buildCurrentTrackInfo(),
+            ],
+          ),
         ),
       ),
     );
   }
 
+  Widget _buildStatusBar() {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: blockSizeHorizontal * 4,
+        vertical: blockSizeVertical * 1.5,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.grey[900]!.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(blockSizeHorizontal * 3),
+        border: Border.all(color: Colors.grey[800]!, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 10,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 500),
+                height: blockSizeVertical * 1.5,
+                width: blockSizeHorizontal * 3,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color:
+                      widget.connected ? const Color(0xFF1DB954) : Colors.grey,
+                  boxShadow: widget.connected
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF1DB954).withOpacity(0.5),
+                            blurRadius: 8,
+                            spreadRadius: 2,
+                          )
+                        ]
+                      : null,
+                ),
+              ),
+              SizedBox(width: blockSizeHorizontal * 2),
+              Text(
+                true ? 'Active - Ready to Match' : 'Inactive',
+                style: TextStyle(
+                  color: Colors.grey[300],
+                  fontSize: blockSizeHorizontal * 3.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              Icon(Icons.people_outline,
+                  size: blockSizeHorizontal * 4.5, color: Colors.grey[400]),
+              SizedBox(width: blockSizeHorizontal * 1.5),
+              StreamBuilder<int>(
+                stream:
+                    Stream.periodic(Duration(seconds: Random().nextInt(2) + 10))
+                        .asyncMap((_) async {
+                  setState(() {});
+                  int _lastActiveUsers =
+                      Random().nextInt(51) + 50; // Initialize with 50-100
+
+                  // 10% chance to change the number
+                  if (Random().nextDouble() < 0.1) {
+                    // Calculate max change allowed (10% of current number)
+                    int maxChange = (_lastActiveUsers * 0.1).round();
+
+                    // Randomly increase or decrease by up to maxChange
+                    int change =
+                        Random().nextInt(maxChange * 2 + 1) - maxChange;
+
+                    // Update the number
+                    _lastActiveUsers = _lastActiveUsers + change;
+                  }
+
+                  return _lastActiveUsers;
+                }),
+                initialData: Random().nextInt(51) + 50, // Initial random 50-100
+                builder: (context, snapshot) {
+                  return Text(
+                    '${snapshot.data} Active',
+                    style: TextStyle(
+                      color: Colors.grey[300],
+                      fontSize: blockSizeHorizontal * 3.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildQuickMatchButton() {
-    firestoreDatabaseService.updateActiveStatus();
     return GestureDetector(
       onTap: _navigateToQuickMatch,
-      child: Container(
-        width: 220.w,
-        height: 70.h,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(35),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: true
-                ? [Color(0xFF1DB954), Color(0xFF1ED760)] // Spotify green
-                : [Color(0xFF282828), Color(0xFF181818)], // Spotify dark grey
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: _isPaymentComplete
-                  ? const Color(0xFF1DB954).withOpacity(0.3)
-                  : Colors.black12,
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            if (_isPaymentComplete)
-              Positioned(
-                left: 15.w,
-                child: Icon(
-                  Icons.music_note,
-                  color: Colors.white.withOpacity(0.7),
-                  size: 24.sp,
+      child: TweenAnimationBuilder(
+        tween: Tween<double>(begin: 1, end: 1),
+        duration: const Duration(milliseconds: 200),
+        builder: (context, double value, child) {
+          return Transform.scale(
+            scale: value,
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                vertical: blockSizeVertical * 3,
+                horizontal: blockSizeHorizontal * 5,
+              ),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(blockSizeHorizontal * 4),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF6366F1),
+                    Color(0xFF9333EA),
+                    Color(0xFFEC4899),
+                  ],
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF6366F1).withOpacity(0.3),
+                    blurRadius: 15,
+                    spreadRadius: 2,
+                  ),
+                ],
               ),
-            Text(
-              "Quick Match",
-              style: GoogleFonts.montserrat(
-                fontSize: 20.sp,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-                letterSpacing: 0.5,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ShaderMask(
+                        shaderCallback: (bounds) => const LinearGradient(
+                          colors: [Colors.white, Colors.white70],
+                        ).createShader(bounds),
+                        child: Text(
+                          'Quick Match',
+                          style: GoogleFonts.poppins(
+                            fontSize: blockSizeHorizontal * 6,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: blockSizeVertical * 0.5),
+                      Text(
+                        'Find others listening to your music',
+                        style: TextStyle(
+                          fontSize: blockSizeHorizontal * 3.5,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                  ScaleTransition(
+                    scale: _pulseAnimation,
+                    child: Container(
+                      padding: EdgeInsets.all(blockSizeHorizontal * 4),
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFF6366F1),
+                            Color(0xFF9333EA),
+                          ],
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.music_note,
+                        color: Colors.white,
+                        size: blockSizeHorizontal * 6,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            if (_isPaymentComplete)
-              Positioned(
-                right: 15.w,
-                child: Icon(
-                  Icons.arrow_forward_ios,
-                  color: Colors.white.withOpacity(0.7),
-                  size: 18.sp,
-                ),
-              ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -260,7 +440,7 @@ class _EverythingState extends State<Everything> {
   }
 
   Widget _buildCurrentTrackInfo() {
-    Duration duration = Duration(seconds: 5);
+    Duration duration = const Duration(seconds: 5);
 
     return StreamBuilder<PlayerState>(
       stream: SpotifySdk.subscribePlayerState(),
@@ -286,31 +466,48 @@ class _EverythingState extends State<Everything> {
             color: Colors.white10,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(width: 16.w),
-              Column(
+          child: Center(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: track.imageUri != null
-                        ? FutureBuilder<Uint8List?>(
-                            future: SpotifySdk.getImage(
-                              imageUri: track.imageUri,
-                            ),
-                            builder: (context, imageSnapshot) {
-                              if (imageSnapshot.hasData) {
-                                return Image.memory(
-                                  imageSnapshot.data!,
-                                  width: 430.w,
-                                  height: 430.w,
-                                  fit: BoxFit.cover,
-                                );
-                              }
-                              return Container(
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: track.imageUri != null
+                            ? FutureBuilder<Uint8List?>(
+                                future: SpotifySdk.getImage(
+                                  imageUri: track.imageUri,
+                                ),
+                                builder: (context, imageSnapshot) {
+                                  if (imageSnapshot.hasData) {
+                                    return Image.memory(
+                                      imageSnapshot.data!,
+                                      width: MediaQuery.of(context).size.width *
+                                          0.6,
+                                      height:
+                                          MediaQuery.of(context).size.width *
+                                              0.6,
+                                      fit: BoxFit.cover,
+                                    );
+                                  }
+                                  return Container(
+                                    width: 60.w,
+                                    height: 60.w,
+                                    color: Colors.grey[800],
+                                    child: Icon(
+                                      Icons.music_note,
+                                      color: Colors.white54,
+                                      size: 30.sp,
+                                    ),
+                                  );
+                                },
+                              )
+                            : Container(
                                 width: 60.w,
                                 height: 60.w,
                                 color: Colors.grey[800],
@@ -319,48 +516,43 @@ class _EverythingState extends State<Everything> {
                                   color: Colors.white54,
                                   size: 30.sp,
                                 ),
-                              );
-                            },
-                          )
-                        : Container(
-                            width: 60.w,
-                            height: 60.w,
-                            color: Colors.grey[800],
-                            child: Icon(
-                              Icons.music_note,
-                              color: Colors.white54,
-                              size: 30.sp,
-                            ),
+                              ),
+                      ),
+                      SizedBox(height: 14.h),
+                      Container(
+                        width: MediaQuery.of(context).size.width * 0.7,
+                        alignment: Alignment.center,
+                        child: Text(
+                          track.name,
+                          style: TextStyle(
+                            fontSize: 33.sp,
+                            fontWeight: FontWeight.bold,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      SizedBox(height: 4.h),
+                      Container(
+                        width: MediaQuery.of(context).size.width * 0.7,
+                        alignment: Alignment.center,
+                        child: Text(
+                          track.artist?.name ?? '',
+                          style: TextStyle(
+                            fontSize: 25.sp,
+                            color: Colors.white70,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 14.h),
-                  Text(
-                    track.name,
-                    style: TextStyle(
-                      fontSize: 33.sp,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: 4.h),
-                  Text(
-                    track.artist?.name ?? '',
-                    style: TextStyle(
-                      fontSize: 25.sp,
-                      color: Colors.white70,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  // _buildCurrentMatchesInTheListeningSong(track.name),
                 ],
               ),
-              // Icon(
-              //   isPlaying ? Icons.music_note : Icons.music_off,
-              //   color: Theme.of(context).colorScheme.secondary,
-              // ),
-            ],
+            ),
           ),
         );
       },

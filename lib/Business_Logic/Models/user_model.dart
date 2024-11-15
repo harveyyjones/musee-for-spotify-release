@@ -15,6 +15,10 @@ class UserModel {
   List<String> profilePhotos; // List to store multiple profile photos
   DateTime? createdAt;
   DateTime? updatedAt;
+  String? songName;
+  bool? isUserListening;
+  int? age;
+  List<String> interestedIn;
 
   UserModel({
     this.userId,
@@ -31,6 +35,10 @@ class UserModel {
     this.updatedAt,
     this.phoneNumber,
     this.clinicOwner,
+    this.songName,
+    this.isUserListening,
+    this.age,
+    this.interestedIn = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -47,7 +55,12 @@ class UserModel {
       "profilePhotos": profilePhotos, // Store list of photos
       "updatedAt": updatedAt ?? FieldValue.serverTimestamp(),
       "phoneNumber": phoneNumber,
-      "clinicOwner": clinicOwner
+      "clinicOwner": clinicOwner,
+      "songName": songName,
+      "isUserListening": isUserListening,
+      "gender": gender,
+      "age": age,
+      "interestedIn": interestedIn,
     };
   }
 
@@ -65,5 +78,10 @@ class UserModel {
         updatedAt = (map["updatedAt"] as Timestamp).toDate(),
         phoneNumber = map["phoneNumber"],
         clinicName = map["clinicName"],
-        clinicOwner = map["clinicOwner"];
+        clinicOwner = map["clinicOwner"],
+        songName = map["songName"],
+        isUserListening = map["isUserListening"],
+        gender = map["gender"],
+        age = map["age"],
+        interestedIn = List<String>.from(map["interestedIn"] ?? []);
 }

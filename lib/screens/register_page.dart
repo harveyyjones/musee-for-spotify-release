@@ -52,8 +52,8 @@ class _RegisterPageState extends State<RegisterPage> {
         uid: userCredential.user?.uid,
       );
 
-      Navigator.pushReplacement(context,
-          MaterialPageRoute(builder: (context) => SteppersForClients()));
+      Navigator.pushReplacement(
+          context, MaterialPageRoute(builder: (context) => Steppers()));
     } catch (e) {
       callSnackbar("Registration failed: ${e.toString()}");
     }

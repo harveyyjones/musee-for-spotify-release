@@ -147,34 +147,43 @@ class FirestoreDatabaseService {
     return imageUrls;
   }
 
-  Future saveUser(
-      {String? biography,
-      List<String>? profilePhotos,
-      String? name,
-      String? majorInfo,
-      String? clinicLocation,
-      String? clinicName,
-      String? phoneNumber,
-      bool? clinicOwner,
-      String? uid}) async {
+  Future saveUser({
+    String? biography,
+    List<String>? profilePhotos,
+    String? name,
+    String? majorInfo,
+    String? clinicLocation,
+    String? clinicName,
+    String? phoneNumber,
+    bool? clinicOwner,
+    String? uid,
+    int? age,
+    String? gender,
+    List<String>? interestedIn,
+  }) async {
     UserModel eklenecekUser = UserModel(
-        biography: biography ?? "",
-        eMail: FirebaseAuth.instance.currentUser?.email ?? "",
-        majorInfo: majorInfo ?? "",
-        profilePhotoURL:
-            profilePhotos?.isNotEmpty == true ? profilePhotos!.first : null,
-        profilePhotos: profilePhotos ?? [],
-        name: name ?? "",
-        clinicLocation: clinicLocation ?? "",
-        userId: uid ?? FirebaseAuth.instance.currentUser?.uid,
-        clinicName: clinicName ?? "",
-        clinicOwner: clinicOwner ?? false,
-        phoneNumber: phoneNumber);
+      biography: biography ?? "",
+      eMail: FirebaseAuth.instance.currentUser?.email ?? "",
+      majorInfo: majorInfo ?? "",
+      profilePhotoURL:
+          profilePhotos?.isNotEmpty == true ? profilePhotos!.first : null,
+      profilePhotos: profilePhotos ?? [],
+      name: name ?? "",
+      clinicLocation: clinicLocation ?? "",
+      userId: uid ?? FirebaseAuth.instance.currentUser?.uid,
+      clinicName: clinicName ?? "",
+      clinicOwner: clinicOwner ?? false,
+      phoneNumber: phoneNumber,
+      age: age,
+      gender: gender,
+      interestedIn: interestedIn ?? [],
+    );
 
     await FirebaseFirestore.instance
         .collection("users")
         .doc(eklenecekUser.userId)
         .set(eklenecekUser.toMap());
+
     return eklenecekUser;
   }
 
@@ -603,8 +612,8 @@ class FirestoreDatabaseService {
     }
   }
 
-  Future<List<UserModel>> getLikedPeople() async {
-    List<UserModel> likedPeople = [];
+  Future<Set<UserModel>> getLikedPeople() async {
+    Set<UserModel> likedPeople = {};
 
     // Get liked people from quickMatchesList
     final quickMatchesRef = await _instance
@@ -625,13 +634,21 @@ class FirestoreDatabaseService {
     // Process quickMatchesList
     for (var item in quickMatchesRef.docs) {
       UserModel userModel = await getUserDataForDetailPage(item["uid"]);
-      likedPeople.add(userModel);
+      // Check if user with this ID already exists in the set
+      if (!likedPeople
+          .any((existingUser) => existingUser.userId == userModel.userId)) {
+        likedPeople.add(userModel);
+      }
     }
 
     // Process previousMatchesList
     for (var item in previousMatchesRef.docs) {
       UserModel userModel = await getUserDataForDetailPage(item["uid"]);
-      likedPeople.add(userModel);
+      // Check if user with this ID already exists in the set
+      if (!likedPeople
+          .any((existingUser) => existingUser.userId == userModel.userId)) {
+        likedPeople.add(userModel);
+      }
     }
 
     return likedPeople;
@@ -745,7 +762,7 @@ class FirestoreDatabaseService {
       };
     }).toList();
 
-    await _fireStore.collection('users').doc(currentUser.uid).update({
+    await _fireStore.collection('users').doc(currentUser.uid).set({
       'topArtists': topArtists,
       'lastUpdated': FieldValue.serverTimestamp(),
     });
@@ -859,5 +876,94 @@ class FirestoreDatabaseService {
     print("Prepared genres: $result");
 
     return result;
+  }
+
+  // New methods for user preferences
+  void updateAge(int age) {
+    if (age < 18 || age > 100) {
+      throw Exception('Age must be between 18 and 100');
+    }
+    _instance.collection("users").doc(currentUser!.uid).update({"age": age});
+  }
+
+  void updateGender(String gender) {
+    if (!['male', 'female'].contains(gender.toLowerCase())) {
+      throw Exception('Gender must be either male or female');
+    }
+    _instance
+        .collection("users")
+        .doc(currentUser!.uid)
+        .update({"gender": gender.toLowerCase()});
+  }
+
+  void updateInterestedIn(List<String> interestedIn) {
+    // Validate that all values are either 'male' or 'female'
+    if (!interestedIn
+        .every((gender) => ['male', 'female'].contains(gender.toLowerCase()))) {
+      throw Exception('Invalid gender preference');
+    }
+
+    // Remove duplicates and convert to lowercase
+    final cleanedList =
+        interestedIn.map((e) => e.toLowerCase()).toSet().toList();
+
+    _instance
+        .collection("users")
+        .doc(currentUser!.uid)
+        .update({"interestedIn": cleanedList});
+  }
+
+  Future<void> updateUserPreferences({
+    required int age,
+    required String gender,
+    required List<String> interestedIn,
+  }) async {
+    if (currentUser == null) {
+      throw Exception('No user is currently signed in');
+    }
+
+    // Input validation
+    if (age < 18 || age > 100) {
+      throw Exception('Age must be between 18 and 100');
+    }
+
+    if (!['male', 'female'].contains(gender.toLowerCase())) {
+      throw Exception('Gender must be either male or female');
+    }
+
+    // Validate and clean interested_in list
+    final cleanedInterests = interestedIn
+        .map((e) => e.toLowerCase())
+        .where((e) => ['male', 'female'].contains(e))
+        .toSet()
+        .toList();
+
+    if (cleanedInterests.isEmpty) {
+      throw Exception('Must select at least one gender preference');
+    }
+
+    try {
+      await _instance.collection("users").doc(currentUser!.uid).update({
+        "age": age,
+        "gender": gender.toLowerCase(),
+        "interestedIn": cleanedInterests,
+        "preferencesCompleted": true,
+        "updatedAt": FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Error updating user preferences: $e');
+      throw Exception('Failed to update preferences');
+    }
+  }
+
+  Future<bool> hasCompletedPreferences() async {
+    try {
+      final doc =
+          await _instance.collection("users").doc(currentUser!.uid).get();
+      return doc.data()?['preferencesCompleted'] ?? false;
+    } catch (e) {
+      print('Error checking preferences status: $e');
+      return false;
+    }
   }
 }

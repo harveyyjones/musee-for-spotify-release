@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -11,6 +13,7 @@ import 'package:spotify_project/screens/register_page.dart';
 import 'package:spotify_project/widgets/bottom_bar.dart';
 import 'package:spotify_sdk/models/player_state.dart';
 import 'package:spotify_sdk/spotify_sdk.dart';
+import 'package:spotify_project/constants/app_colors.dart';
 
 class OwnProfileScreenForClients extends StatefulWidget {
   OwnProfileScreenForClients({Key? key}) : super(key: key);
@@ -20,8 +23,8 @@ class OwnProfileScreenForClients extends StatefulWidget {
       _OwnProfileScreenForClientsState();
 }
 
- String defaultImage =
-        "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png";
+String defaultImage =
+    "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png";
 
 class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
     with SingleTickerProviderStateMixin {
@@ -68,7 +71,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
       }
 
       print("Fetching fresh data...");
-      
+
       // Get user data
       final userData = await _serviceForSnapshot.getUserData();
       if (userData == null) {
@@ -93,15 +96,16 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
           items: artistsData.map((artist) {
             print("Processing artist for genres: ${artist['name']}");
             print("Raw genres data: ${artist['genres']}");
-            
+
             List<String> processedGenres = [];
             if (artist['genres'] != null) {
-                if (artist['genres'] is List) {
-                    processedGenres = List<String>.from(artist['genres']);
-                } else if (artist['genres'] is String) {
-                    // Handle case where genres might be a comma-separated string
-                    processedGenres = artist['genres'].split(',').map((e) => e.trim()).toList();
-                }
+              if (artist['genres'] is List) {
+                processedGenres = List<String>.from(artist['genres']);
+              } else if (artist['genres'] is String) {
+                // Handle case where genres might be a comma-separated string
+                processedGenres =
+                    artist['genres'].split(',').map((e) => e.trim()).toList();
+              }
             }
             print("Processed genres: $processedGenres");
 
@@ -113,11 +117,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
               id: artist['id'] ?? '',
               images: [
                 if (artist['imageUrl'] != null)
-                  ImageOftheArtist(
-                    url: artist['imageUrl'],
-                    height: 0,
-                    width: 0
-                  )
+                  ImageOftheArtist(url: artist['imageUrl'], height: 0, width: 0)
               ],
               name: artist['name'] ?? 'Unknown Artist',
               popularity: artist['popularity'] ?? 0,
@@ -154,9 +154,9 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
       };
       _lastFetchTime = DateTime.now();
 
-      print("Data load complete. Artists: ${artists.items.length}, Tracks: ${tracks.length}");
+      print(
+          "Data load complete. Artists: ${artists.items.length}, Tracks: ${tracks.length}");
       return _cachedData!;
-
     } catch (e, stackTrace) {
       print("Error in _loadAllData: $e");
       print("Stack trace: $stackTrace");
@@ -190,31 +190,33 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
-            child: CircularProgressIndicator(color: Color(0xFF1DB954))
-          );
-        }
-
-        if (snapshot.hasError) {
-          print("Error in FutureBuilder: ${snapshot.error}");
-          return Center(
-            child: Text(
-              'Error loading profile data. Please try again.',
-              style: TextStyle(color: Colors.white),
+            child: CircularProgressIndicator(
+              color: AppColors.primary,
             ),
           );
         }
 
-        final data = snapshot.data ?? {
-          'userData': null,
-          'artists': SpotifyArtistsResponse(
-            href: '',
-            limit: 0,
-            offset: 0,
-            total: 0,
-            items: [],
-          ),
-          'tracks': <SpotifyTrack>[],
-        };
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              'Error loading profile data. Please try again.',
+              style: TextStyle(color: AppColors.white),
+            ),
+          );
+        }
+
+        final data = snapshot.data ??
+            {
+              'userData': null,
+              'artists': SpotifyArtistsResponse(
+                href: '',
+                limit: 0,
+                offset: 0,
+                total: 0,
+                items: [],
+              ),
+              'tracks': <SpotifyTrack>[],
+            };
 
         final userData = data['userData'];
         final artists = data['artists'] as SpotifyArtistsResponse;
@@ -222,229 +224,307 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
         final genres = _prepareGenres(artists);
 
         return Scaffold(
-          backgroundColor: Colors.black,
-          body: CustomScrollView(
-            controller: _scrollController,
-            slivers: [
-              SliverToBoxAdapter(child: _buildUserProfile(userData)),
-              if (genres.isNotEmpty)
-                SliverToBoxAdapter(child: _buildGenresWidget(genres)),
-              if (artists.items.isNotEmpty)
-                SliverToBoxAdapter(child: _buildTopArtists(artists)),
-              SliverToBoxAdapter(
-                child: Divider(
-                  thickness: 1,
-                  color: Colors.white.withOpacity(0.5)
-                )
+          backgroundColor: AppColors.background,
+          body: Stack(
+            children: [
+              // Background gradient
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.background,
+                      Colors.black,
+                      AppColors.background,
+                    ],
+                  ),
+                ),
               ),
-              if (tracks.isNotEmpty)
-                SliverToBoxAdapter(child: _buildTopTracks(tracks)),
+
+              CustomScrollView(
+                controller: _scrollController,
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  // Profile Header
+                  SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.55,
+                      child: Stack(
+                        children: [
+                          _buildProfileImages(userData),
+                          _buildProfileGradientOverlay(),
+                          _buildProfileInfo(userData),
+                          _buildSettingsButton(),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Content Sections
+                  if (genres.isNotEmpty)
+                    SliverPadding(
+                      padding: EdgeInsets.symmetric(vertical: 24.h),
+                      sliver:
+                          SliverToBoxAdapter(child: _buildGenresWidget(genres)),
+                    ),
+
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20.w),
+                      child: _buildCurrentTrack(),
+                    ),
+                  ),
+
+                  if (artists != null && artists.items.isNotEmpty)
+                    SliverToBoxAdapter(child: _buildTopArtists(artists)),
+                  SliverToBoxAdapter(
+                      child: Divider(
+                          thickness: 1,
+                          color: AppColors.white.withOpacity(0.5))),
+                  if (tracks.isNotEmpty)
+                    SliverToBoxAdapter(child: _buildTopTracks(tracks)),
+                ],
+              ),
+
+              // Bottom navigation bar
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: BottomBar(
+                  selectedIndex: userData?.clinicOwner ?? true ? 2 : 2,
+                ),
+              ),
             ],
-          ),
-          bottomNavigationBar: BottomBar(
-            selectedIndex: userData?.clinicOwner ?? true ? 2 : 2,
           ),
         );
       },
     );
   }
-   
 
-  Widget _buildUserProfile(dynamic userData) {
-    List<String> profilePhotos = userData.profilePhotos ?? [];
-
-    if (profilePhotos.isEmpty) {
-      profilePhotos = [defaultImage];
-    }
-
-    void _nextImage() {
-      print("Next image tapped");
-      if (_currentImageIndex < profilePhotos.length - 1) {
-        setState(() {
-          _currentImageIndex++;
-          _pageController.animateToPage(
-            _currentImageIndex,
-            duration: Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-          );
-        });
-      }
-    }
-
-    void _previousImage() {
-      print("Previous image tapped");
-      if (_currentImageIndex > 0) {
-        setState(() {
-          _currentImageIndex--;
-          _pageController.animateToPage(
-            _currentImageIndex,
-            duration: Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-          );
-        });
-      }
-    }
+  Widget _buildProfileImages(dynamic userData) {
+    List<String> profilePhotos = userData?.profilePhotos ?? [defaultImage];
 
     return Stack(
       children: [
+        // Main Image
         Container(
-          height: MediaQuery.of(context).size.height * 0.8,
+          height: MediaQuery.of(context).size.height * 0.55,
+          width: double.infinity,
           child: PageView.builder(
             controller: _pageController,
             itemCount: profilePhotos.length,
-            onPageChanged: (index) {
-              setState(() {
-                _currentImageIndex = index;
-              });
-            },
-            itemBuilder: (context, index) {
-              return Image.network(
-                profilePhotos[index],
-                fit: BoxFit.cover,
-                loadingBuilder: (BuildContext context, Widget child,
-                    ImageChunkEvent? loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Center(
-                    child: CircularProgressIndicator(
-                      value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded /
-                              loadingProgress.expectedTotalBytes!
-                          : null,
-                      color: Colors.yellow,
+            onPageChanged: (index) =>
+                setState(() => _currentImageIndex = index),
+            itemBuilder: (context, index) => Image.network(
+              profilePhotos[index],
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                color: AppColors.background,
+                child: Icon(Icons.error, color: AppColors.primary, size: 40.sp),
+              ),
+              loadingBuilder: (context, child, progress) => progress == null
+                  ? child
+                  : Container(
+                      color: AppColors.background,
+                      child: Center(
+                          child: CircularProgressIndicator(
+                              color: AppColors.primary)),
                     ),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) =>
-                    Icon(Icons.error, color: Colors.yellow),
-              );
-            },
-          ),
-        ),
-        Positioned.fill(
-          child: Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: _previousImage,
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(color: Colors.transparent),
-                ),
-              ),
-              Expanded(
-                child: GestureDetector(
-                  onTap: _nextImage,
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(color: Colors.transparent),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Positioned(
-          top: 40,
-          left: 0,
-          right: 0,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              profilePhotos.length,
-              (index) => Container(
-                margin: EdgeInsets.symmetric(horizontal: 4),
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _currentImageIndex == index
-                      ? Color(0xFF1ED760)
-                      : Colors.white.withOpacity(0.5),
-                ),
-              ),
             ),
           ),
         ),
-        Positioned(
-          bottom: 20,
-          left: 20,
-          right: 20,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+
+        // Image Indicators
+        if (profilePhotos.length > 1)
+          Positioned(
+            top: 40.h,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                profilePhotos.length,
+                (index) => _buildImageIndicator(index),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildImageIndicator(int index) {
+    final isActive = _currentImageIndex == index;
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 4.w),
+      width: 8.w,
+      height: 8.w,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isActive ? AppColors.primary : AppColors.white.withOpacity(0.5),
+        boxShadow: isActive
+            ? [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.5),
+                  blurRadius: 8,
+                  spreadRadius: 2,
+                )
+              ]
+            : null,
+      ),
+    );
+  }
+
+  Widget _buildProfileGradientOverlay() {
+    return Positioned.fill(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.transparent,
+              AppColors.black.withOpacity(0.2),
+              AppColors.black.withOpacity(0.8),
+            ],
+            stops: const [0.0, 0.5, 1.0],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileInfo(dynamic userData) {
+    return Positioned(
+      bottom: 20.h,
+      left: 20.w,
+      right: 20.w,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                userData.name ?? currentUser?.displayName ?? 'No Name',
+                userData?.name ?? 'No Name',
                 style: GoogleFonts.poppins(
                   fontSize: 45.sp,
-                  color: Colors.white,
+                  color: AppColors.white,
                   fontWeight: FontWeight.bold,
+                  height: 1.2,
+                  shadows: [
+                    Shadow(
+                      offset: Offset(0, 2),
+                      blurRadius: 4,
+                      color: Colors.black.withOpacity(0.5),
+                    ),
+                  ],
                 ),
               ),
-              SizedBox(height: 8),
+              SizedBox(width: 14.w),
               Text(
-                userData.majorInfo ?? "No major info",
-                style: TextStyle(
-                  fontSize: 18.sp,
-                  color: Colors.white.withOpacity(0.8),
+                userData?.age != null ? '${userData.age}' : '',
+                style: GoogleFonts.poppins(
+                  fontSize: 45.sp,
+                  color: AppColors.white,
+                  fontWeight: FontWeight.bold,
+                  height: 1.2,
+                  shadows: [
+                    Shadow(
+                      offset: Offset(0, 2),
+                      blurRadius: 4,
+                      color: Colors.black.withOpacity(0.5),
+                    ),
+                  ],
                 ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                userData.biography ?? "No biography available.",
-                style: TextStyle(
-                  fontSize: 16.sp,
-                  color: Colors.white.withOpacity(0.7),
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
+          SizedBox(height: 12.h),
+          _buildBiography(userData),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsButton() {
+    return Positioned(
+      top: 40.h,
+      right: 20.w,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AppColors.primary,
+              AppColors.secondary,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.2),
+              blurRadius: 8,
+            )
+          ],
         ),
-        Positioned(
-          top: 40,
-          right: 20,
-          child: InkWell(
-            onTap: () {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (context) => ProfileSettings()));
-            },
-            child: Hero(
-              tag: "Profile Screen",
-              child: Icon(Icons.settings, size: 30.sp, color: Colors.white),
-            ),
+        child: IconButton(
+          icon: Icon(Icons.settings, size: 24.sp),
+          color: AppColors.white,
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => ProfileSettings()),
           ),
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildBiography(dynamic userData) {
+    return Text(
+      userData.biography ?? "No biography available.",
+      style: TextStyle(
+        fontSize: 25.sp,
+        color: AppColors.white.withOpacity(0.7),
+      ),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
     );
   }
 
   Widget _buildCurrentTrack() {
     return StreamBuilder<PlayerState>(
       stream: SpotifySdk.subscribePlayerState(),
-      builder: (BuildContext context, AsyncSnapshot<PlayerState> snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
-              child: CircularProgressIndicator(color: Color(0xFF1DB954)));
-        }
-        if (snapshot.hasError) {
-          return Center(
-              child: Text('Error: ${snapshot.error}',
-                  style: TextStyle(color: Colors.white)));
-        }
+      builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data?.track == null) {
           return SizedBox.shrink();
         }
 
         final track = snapshot.data!.track!;
+        final isPlaying = !snapshot.data!.isPaused;
+
         return Container(
-          padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-          color: Color(0xFF1DB954).withOpacity(0.1),
+          margin: EdgeInsets.only(bottom: 24.h),
+          padding: EdgeInsets.all(16.w),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.primary.withOpacity(0.1),
+                AppColors.secondary.withOpacity(0.1),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16.r),
+            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+          ),
           child: Row(
             children: [
-              Icon(Icons.music_note, color: Color(0xFF1DB954)),
+              Icon(Icons.music_note, color: AppColors.primary),
               SizedBox(width: 12),
               Expanded(
                 child: Text(
                   '${track.artist.name} - ${track.name}',
-                  style: TextStyle(color: Colors.white, fontSize: 16.sp),
+                  style: TextStyle(color: AppColors.white, fontSize: 16.sp),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -457,6 +537,8 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
   }
 
   Widget _buildTopArtists(SpotifyArtistsResponse artists) {
+    if (artists.items.isEmpty) return SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -465,20 +547,25 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
           child: Text(
             'Top Artists',
             style: TextStyle(
-              color: Color(0xFF1DB954),
+              color: AppColors.primary,
               fontSize: 24.sp,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
             ),
           ),
         ),
-        Container(
+        SizedBox(
           height: 160,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            itemCount: 5,
+            padding: EdgeInsets.symmetric(horizontal: 12),
+            itemCount: min(artists.items.length, 5), // Show max 5 artists
             itemBuilder: (context, index) {
               final artist = artists.items[index];
+              final imageUrl = artist.images.isNotEmpty
+                  ? artist.images[0].url
+                  : defaultImage; // Use default image if none available
+
               return Container(
                 width: 120,
                 margin: EdgeInsets.symmetric(horizontal: 8),
@@ -489,10 +576,10 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                       height: 100,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: Color(0xFF1DB954), width: 2),
+                        border: Border.all(color: AppColors.primary, width: 2),
                         boxShadow: [
                           BoxShadow(
-                            color: Color(0xFF1DB954).withOpacity(0.3),
+                            color: AppColors.primary.withOpacity(0.3),
                             blurRadius: 8,
                             offset: Offset(0, 4),
                           ),
@@ -509,7 +596,7 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                     Text(
                       artist.name,
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppColors.white,
                         fontSize: 23.sp,
                         fontWeight: FontWeight.w500,
                       ),
@@ -531,11 +618,11 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
           colors: [
-            Color.fromARGB(255, 0, 0, 0),
-            Color.fromARGB(255, 17, 188, 119).withOpacity(0.1),
+            Colors.transparent,
+            Color(0xFF6366F1).withOpacity(0.05),
           ],
         ),
       ),
@@ -546,69 +633,69 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
             padding: EdgeInsets.all(20.w),
             child: Text(
               'Top Tracks',
-              style: TextStyle(
-                color: Color(0xFF1DB954),
-                fontSize: 28.sp,
+              style: GoogleFonts.poppins(
+                fontSize: 20.sp,
                 fontWeight: FontWeight.bold,
-                letterSpacing: 1.2,
+                foreground: Paint()
+                  ..shader = LinearGradient(
+                    colors: const [
+                      Color(0xFF6366F1),
+                      Color(0xFF9333EA),
+                    ],
+                  ).createShader(Rect.fromLTWH(0, 0, 200, 70)),
               ),
             ),
           ),
           ListView.builder(
             shrinkWrap: true,
             physics: NeverScrollableScrollPhysics(),
-            itemCount: 5,
+            itemCount: min(tracks.length, 5),
             itemBuilder: (context, index) {
               final track = tracks[index];
-              return AnimatedContainer(
-                duration: Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                margin: EdgeInsets.symmetric(vertical: 8.h, horizontal: 16.w),
+              return Container(
+                margin: EdgeInsets.symmetric(vertical: 8.h, horizontal: 20.w),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  gradient: LinearGradient(
+                    colors: [
+                      Color(0xFF6366F1).withOpacity(0.1),
+                      Color(0xFF9333EA).withOpacity(0.1),
+                    ],
+                  ),
                   borderRadius: BorderRadius.circular(12.r),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Color(0xFF1DB954).withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
+                  border: Border.all(
+                    color: Color(0xFF6366F1).withOpacity(0.3),
+                  ),
                 ),
                 child: ListTile(
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-                  leading: ClipRRect(
-                    borderRadius: BorderRadius.circular(8.r),
-                    child: Image.network(
-                      track.album.images.isNotEmpty
-                          ? track.album.images[0].url
-                          : '',
-                      width: 100.w,
-                      height: 100.w,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          width: 60.w,
-                          height: 60.w,
-                          color: Color(0xFF1DB954).withOpacity(0.2),
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                      loadingProgress.expectedTotalBytes!
-                                  : null,
-                              color: Color(0xFF1DB954),
-                            ),
+                  contentPadding: EdgeInsets.all(12.w),
+                  leading: Container(
+                    width: 50.w,
+                    height: 50.w,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8.r),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0xFF6366F1).withOpacity(0.2),
+                          blurRadius: 8,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8.r),
+                      child: Image.network(
+                        track.album.images.isNotEmpty
+                            ? track.album.images[0].url
+                            : '',
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: Color(0xFF6366F1).withOpacity(0.2),
+                          child: Icon(
+                            Icons.music_note,
+                            color: Color(0xFF6366F1),
+                            size: 24.sp,
                           ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        width: 60.w,
-                        height: 60.w,
-                        color: Color(0xFF1DB954).withOpacity(0.2),
-                        child: Icon(Icons.error, color: Color(0xFF1DB954)),
+                        ),
                       ),
                     ),
                   ),
@@ -619,12 +706,31 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
                       fontSize: 16.sp,
                       fontWeight: FontWeight.w600,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   subtitle: Text(
                     track.artists.map((artist) => artist.name).join(', '),
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.7),
                       fontSize: 14.sp,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: Container(
+                    width: 32.w,
+                    height: 32.w,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0xFF6366F1).withOpacity(0.1),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.play_arrow_rounded,
+                        color: Color(0xFF6366F1),
+                        size: 20.sp,
+                      ),
                     ),
                   ),
                 ),
@@ -637,142 +743,163 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
   }
 
   Widget _buildGenresWidget(List<String> genres) {
-    print("Building genres widget with ${genres.length} genres");
-    
-    // Early return if no genres
-    if (genres.isEmpty) {
-        print("No genres available to display");
-        return SizedBox.shrink();
-    }
-
     return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-            Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                child: Text(
-                    'Music Interests',
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+          child: Text(
+            'Music Interests',
+            style: GoogleFonts.poppins(
+              fontSize: 20.sp,
+              fontWeight: FontWeight.bold,
+              foreground: Paint()
+                ..shader = LinearGradient(
+                  colors: [AppColors.primary, AppColors.secondary],
+                ).createShader(Rect.fromLTWH(0, 0, 200, 70)),
+            ),
+          ),
+        ),
+        AnimatedBuilder(
+          animation: _expansionAnimation,
+          builder: (context, child) {
+            final displayedGenres =
+                _showAllGenres ? genres : genres.take(4).toList();
+            print("Displaying ${displayedGenres.length} genres");
+
+            return Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: displayedGenres.map((genre) {
+                  return Container(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.primary),
+                    ),
+                    child: Text(
+                      genre,
+                      style: TextStyle(
+                        color: AppColors.white,
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            );
+          },
+        ),
+        // Only show expand/collapse if we have more than 4 genres
+        if (genres.length > 4)
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _showAllGenres = !_showAllGenres;
+                  if (_showAllGenres) {
+                    _animationController.forward();
+                  } else {
+                    _animationController.reverse();
+                  }
+                });
+              },
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _showAllGenres ? 'Show Less' : 'Show More',
                     style: TextStyle(
-                        color: Color(0xFF1DB954),
-                        fontSize: 24.sp,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
+                      color: AppColors.primary,
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w500,
                     ),
-                ),
-            ),
-            AnimatedBuilder(
-                animation: _expansionAnimation,
-                builder: (context, child) {
-                    final displayedGenres = _showAllGenres ? genres : genres.take(4).toList();
-                    print("Displaying ${displayedGenres.length} genres");
-                    
-                    return Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20),
-                        child: Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: displayedGenres.map((genre) {
-                                return Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                        color: Color(0xFF1DB954).withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(color: Color(0xFF1DB954)),
-                                    ),
-                                    child: Text(
-                                        genre,
-                                        style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 14.sp,
-                                            fontWeight: FontWeight.w500,
-                                        ),
-                                    ),
-                                );
-                            }).toList(),
-                        ),
-                    );
-                },
-            ),
-            // Only show expand/collapse if we have more than 4 genres
-            if (genres.length > 4)
-                Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    child: GestureDetector(
-                        onTap: () {
-                            setState(() {
-                                _showAllGenres = !_showAllGenres;
-                                if (_showAllGenres) {
-                                    _animationController.forward();
-                                } else {
-                                    _animationController.reverse();
-                                }
-                            });
-                        },
-                        child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                                Text(
-                                    _showAllGenres ? 'Show Less' : 'Show More',
-                                    style: TextStyle(
-                                        color: Color(0xFF1DB954),
-                                        fontSize: 16.sp,
-                                        fontWeight: FontWeight.w500,
-                                    ),
-                                ),
-                                AnimatedRotation(
-                                    turns: _showAllGenres ? 0.5 : 0,
-                                    duration: Duration(milliseconds: 300),
-                                    child: Icon(
-                                        Icons.arrow_drop_down,
-                                        color: Color(0xFF1DB954),
-                                    ),
-                                ),
-                            ],
-                        ),
+                  ),
+                  AnimatedRotation(
+                    turns: _showAllGenres ? 0.5 : 0,
+                    duration: Duration(milliseconds: 300),
+                    child: Icon(
+                      Icons.arrow_drop_down,
+                      color: AppColors.primary,
                     ),
-                ),
-        ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 
   List<String> _prepareGenres(SpotifyArtistsResponse? artists) {
     print("Starting genre preparation...");
     if (artists == null) {
-        print("Artists response is null");
-        return [];
+      print("Artists response is null");
+      return [];
     }
 
     if (artists.items.isEmpty) {
-        print("No artists found in the response");
-        return [];
+      print("No artists found in the response");
+      return [];
     }
 
     print("Processing ${artists.items.length} artists for genres");
-    
+
     Set<String> genresSet = Set<String>();
-    
+
     for (var artist in artists.items) {
-        print("Artist: ${artist.name}");
-        print("Raw genres for ${artist.name}: ${artist.genres}");
-        
-        if (artist.genres.isNotEmpty) {
-            // Filter out empty strings and normalize genres
-            var validGenres = artist.genres
-                .where((genre) => genre.isNotEmpty)
-                .map((genre) => genre.trim())
-                .toList();
-                
-            print("Valid genres for ${artist.name}: $validGenres");
-            genresSet.addAll(validGenres);
-        }
+      print("Artist: ${artist.name}");
+      print("Raw genres for ${artist.name}: ${artist.genres}");
+
+      if (artist.genres.isNotEmpty) {
+        // Filter out empty strings and normalize genres
+        var validGenres = artist.genres
+            .where((genre) => genre.isNotEmpty)
+            .map((genre) => genre.trim())
+            .toList();
+
+        print("Valid genres for ${artist.name}: $validGenres");
+        genresSet.addAll(validGenres);
+      }
     }
 
     // Sort genres alphabetically and limit to first 8
     var sortedGenres = genresSet.toList()
       ..sort()
       ..take(8);
-    
+
     print("Final prepared genres: $sortedGenres");
     return sortedGenres;
+  }
+
+  Widget _buildProfileImage(String imageUrl) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.75,
+      width: double.infinity,
+      child: Image.network(
+        imageUrl,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            color: const Color(0xFF1A1A1A),
+            child: Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
+              ),
+            ),
+          );
+        },
+        errorBuilder: (_, __, ___) => Container(
+          color: const Color(0xFF1A1A1A),
+          child: Icon(Icons.person, color: Color(0xFF6366F1), size: 48.sp),
+        ),
+      ),
+    );
   }
 }
