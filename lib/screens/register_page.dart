@@ -24,6 +24,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController nameController = TextEditingController();
   bool isVisible = false;
+  bool isLoading = false;
 
   @override
   void dispose() {
@@ -34,6 +35,7 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Future<void> signUp() async {
+    setState(() => isLoading = true);
     try {
       UserCredential userCredential =
           await FirebaseAuth.instance.createUserWithEmailAndPassword(
@@ -56,60 +58,75 @@ class _RegisterPageState extends State<RegisterPage> {
           context, MaterialPageRoute(builder: (context) => Steppers()));
     } catch (e) {
       callSnackbar("Registration failed: ${e.toString()}");
+    } finally {
+      setState(() => isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Color(0xFF121212),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: Icon(Icons.arrow_back_ios, color: Colors.white),
-        ),
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24.w),
-          child: Form(
-            key: formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(height: 60.h),
-                Text(
-                  "Create Account",
-                  style: GoogleFonts.poppins(
-                    fontSize: 32.sp,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: Color(0xFF121212),
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: Icon(Icons.arrow_back_ios, color: Colors.white),
+            ),
+          ),
+          body: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24.w),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(height: 60.h),
+                    Text(
+                      "Create Account",
+                      style: GoogleFonts.poppins(
+                        fontSize: 32.sp,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(height: 8.h),
+                    Text(
+                      "Sign up to get started!",
+                      style: GoogleFonts.poppins(
+                        fontSize: 16.sp,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                    SizedBox(height: 48.h),
+                    _buildTextField("Name", nameController, Icons.person),
+                    SizedBox(height: 24.h),
+                    _buildTextField("Email", emailController, Icons.email),
+                    SizedBox(height: 24.h),
+                    _buildTextField("Password", passwordController, Icons.lock,
+                        isPassword: true),
+                    SizedBox(height: 48.h),
+                    _buildSignUpButton(),
+                  ],
                 ),
-                SizedBox(height: 8.h),
-                Text(
-                  "Sign up to get started!",
-                  style: GoogleFonts.poppins(
-                    fontSize: 16.sp,
-                    color: Colors.grey[400],
-                  ),
-                ),
-                SizedBox(height: 48.h),
-                _buildTextField("Name", nameController, Icons.person),
-                SizedBox(height: 24.h),
-                _buildTextField("Email", emailController, Icons.email),
-                SizedBox(height: 24.h),
-                _buildTextField("Password", passwordController, Icons.lock,
-                    isPassword: true),
-                SizedBox(height: 48.h),
-                _buildSignUpButton(),
-              ],
+              ),
             ),
           ),
         ),
-      ),
+        if (isLoading)
+          Container(
+            color: Colors.black54,
+            child: Center(
+              child: CircularProgressIndicator(
+                color: Colors.blueAccent,
+              ),
+            ),
+          ),
+      ],
     );
   }
 

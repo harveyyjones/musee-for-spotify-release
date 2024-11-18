@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:spotify_project/Business_Logic/firestore_database_service.dart';
+import 'package:spotify_project/Business_Logic/profile_service.dart';
 import 'package:spotify_project/business/Spotify_Logic/Models/top_10_track_model.dart';
 import 'package:spotify_project/business/Spotify_Logic/constants.dart';
 import 'package:spotify_project/business/Spotify_Logic/services/fetch_artists.dart';
@@ -28,25 +29,26 @@ String defaultImage =
 
 class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
     with SingleTickerProviderStateMixin {
+  late final ProfileDataService _profileDataService;
   final ScrollController _scrollController = ScrollController();
-  final FirestoreDatabaseService _serviceForSnapshot =
-      FirestoreDatabaseService();
   late Future<Map<String, dynamic>> _combinedFuture;
   static Map<String, dynamic>? _cachedData;
   DateTime? _lastFetchTime;
   int _currentImageIndex = 0;
-  bool _showAllGenres = false; // Add this line
-
+  bool _showAllGenres = false;
   late AnimationController _animationController;
   late Animation<double> _expansionAnimation;
+  late PageController _pageController;
 
   @override
   void initState() {
     super.initState();
-    _combinedFuture = _loadAllData();
+    _profileDataService = ProfileDataService(
+      firestoreDatabaseService: FirestoreDatabaseService(),
+    );
+    _combinedFuture = _loadData();
     _pageController = PageController();
 
-    // Add animation controller initialization
     _animationController = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: 300),
@@ -57,122 +59,25 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
     );
   }
 
-  PageController _pageController = PageController();
-
-  Future<Map<String, dynamic>> _loadAllData() async {
-    try {
-      // Check if cached data exists and is less than 5 minutes old
-      if (_cachedData != null && _lastFetchTime != null) {
-        final difference = DateTime.now().difference(_lastFetchTime!);
-        if (difference.inMinutes < 5) {
-          print("Returning cached data");
-          return _cachedData!;
-        }
-      }
-
-      print("Fetching fresh data...");
-
-      // Get user data
-      final userData = await _serviceForSnapshot.getUserData();
-      if (userData == null) {
-        throw Exception("Failed to fetch user data");
-      }
-      print("User data fetched successfully: ${userData.name}");
-
-      // Get artists data with error handling
-      final artistsData = await _serviceForSnapshot
-          .getTopArtistsFromFirebase(userData.userId ?? '');
-      print("Raw artists data: $artistsData");
-
-      // Create empty SpotifyArtistsResponse if no artists data
-      final SpotifyArtistsResponse artists;
-      if (artistsData != null && artistsData.isNotEmpty) {
-        print("Processing artist data for genres...");
-        artists = SpotifyArtistsResponse(
-          href: '',
-          limit: artistsData.length,
-          offset: 0,
-          total: artistsData.length,
-          items: artistsData.map((artist) {
-            print("Processing artist for genres: ${artist['name']}");
-            print("Raw genres data: ${artist['genres']}");
-
-            List<String> processedGenres = [];
-            if (artist['genres'] != null) {
-              if (artist['genres'] is List) {
-                processedGenres = List<String>.from(artist['genres']);
-              } else if (artist['genres'] is String) {
-                // Handle case where genres might be a comma-separated string
-                processedGenres =
-                    artist['genres'].split(',').map((e) => e.trim()).toList();
-              }
-            }
-            print("Processed genres: $processedGenres");
-
-            return Artist(
-              externalUrls: ExternalUrls(spotify: artist['spotify_url'] ?? ''),
-              followers: Followers(total: artist['followers']?['total'] ?? 0),
-              genres: processedGenres,
-              href: artist['href'] ?? '',
-              id: artist['id'] ?? '',
-              images: [
-                if (artist['imageUrl'] != null)
-                  ImageOftheArtist(url: artist['imageUrl'], height: 0, width: 0)
-              ],
-              name: artist['name'] ?? 'Unknown Artist',
-              popularity: artist['popularity'] ?? 0,
-              type: artist['type'] ?? '',
-              uri: artist['uri'] ?? '',
-            );
-          }).toList(),
-        );
-      } else {
-        artists = SpotifyArtistsResponse(
-          href: '',
-          limit: 0,
-          offset: 0,
-          total: 0,
-          items: [],
-        );
-      }
-
-      // Fetch tracks with error handling
-      List<SpotifyTrack> tracks = [];
-      try {
-        tracks = await SpotifyServiceForTracks(accessToken).fetchTracks();
-        await _serviceForSnapshot.updateTopTracks(tracks);
-      } catch (e) {
-        print("Error fetching tracks: $e");
-        // Continue with empty tracks list rather than failing
-      }
-
-      // Cache the results
-      _cachedData = {
-        'userData': userData,
-        'artists': artists,
-        'tracks': tracks,
-      };
-      _lastFetchTime = DateTime.now();
-
-      print(
-          "Data load complete. Artists: ${artists.items.length}, Tracks: ${tracks.length}");
-      return _cachedData!;
-    } catch (e, stackTrace) {
-      print("Error in _loadAllData: $e");
-      print("Stack trace: $stackTrace");
-      // Return empty data rather than throwing
-      return {
-        'userData': await _serviceForSnapshot.getUserData(),
-        'artists': SpotifyArtistsResponse(
-          href: '',
-          limit: 0,
-          offset: 0,
-          total: 0,
-          items: [],
-        ),
-        'tracks': <SpotifyTrack>[],
-      };
+  Future<Map<String, dynamic>> _loadData() async {
+    // Check cache validity
+    if (_cachedData != null && _lastFetchTime != null) {
+      final difference = DateTime.now().difference(_lastFetchTime!);
+      if (difference.inMinutes < 5) return _cachedData!;
     }
+
+    // Load fresh data
+    final data = await _profileDataService.loadProfileData();
+
+    // Update cache
+    _cachedData = data;
+    _lastFetchTime = DateTime.now();
+
+    return data;
+  }
+
+  List<String> _prepareGenres(SpotifyArtistsResponse artists) {
+    return _profileDataService.prepareGenres(artists);
   }
 
   @override
@@ -271,7 +176,8 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
 
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20.w),
+                      padding:
+                          EdgeInsets.only(top: 24.h, right: 20.w, left: 20.w),
                       child: _buildCurrentTrack(),
                     ),
                   ),
@@ -834,47 +740,6 @@ class _OwnProfileScreenForClientsState extends State<OwnProfileScreenForClients>
           ),
       ],
     );
-  }
-
-  List<String> _prepareGenres(SpotifyArtistsResponse? artists) {
-    print("Starting genre preparation...");
-    if (artists == null) {
-      print("Artists response is null");
-      return [];
-    }
-
-    if (artists.items.isEmpty) {
-      print("No artists found in the response");
-      return [];
-    }
-
-    print("Processing ${artists.items.length} artists for genres");
-
-    Set<String> genresSet = Set<String>();
-
-    for (var artist in artists.items) {
-      print("Artist: ${artist.name}");
-      print("Raw genres for ${artist.name}: ${artist.genres}");
-
-      if (artist.genres.isNotEmpty) {
-        // Filter out empty strings and normalize genres
-        var validGenres = artist.genres
-            .where((genre) => genre.isNotEmpty)
-            .map((genre) => genre.trim())
-            .toList();
-
-        print("Valid genres for ${artist.name}: $validGenres");
-        genresSet.addAll(validGenres);
-      }
-    }
-
-    // Sort genres alphabetically and limit to first 8
-    var sortedGenres = genresSet.toList()
-      ..sort()
-      ..take(8);
-
-    print("Final prepared genres: $sortedGenres");
-    return sortedGenres;
   }
 
   Widget _buildProfileImage(String imageUrl) {

@@ -68,15 +68,49 @@ class FirestoreDatabaseService {
     return null;
   }
 
-  Future<List<UserModel>> getAllUsersData() async {
-    QuerySnapshot querySnapshot =
-        await FirebaseFirestore.instance.collection("users").get();
+  Future<List<UserModel>> getAllUsersData({required String filterType}) async {
+    switch (filterType) {
+      case "never see the unliked again":
+        // First get all users
+        QuerySnapshot querySnapshot =
+            await FirebaseFirestore.instance.collection("users").get();
 
-    List<UserModel> userList = querySnapshot.docs.map((doc) {
-      return UserModel.fromMap(doc.data() as Map<String, dynamic>);
-    }).toList();
+        // Get previously swiped users
+        var previousMatchesRef = await _instance
+            .collection("matches")
+            .doc(currentUser!.uid)
+            .collection("quickMatchesList")
+            .get();
 
-    return userList;
+        // Create set of previously unliked user IDs
+        Set<String> unlikedUserIds = {};
+        for (var doc in previousMatchesRef.docs) {
+          if (doc.data()["isLiked"] == false) {
+            unlikedUserIds.add(doc.data()["uid"] as String);
+          }
+        }
+
+        // Filter out previously unliked users
+        List<UserModel> userList = querySnapshot.docs
+            .where((doc) => !unlikedUserIds.contains(doc.id))
+            .map((doc) => UserModel.fromMap(doc.data() as Map<String, dynamic>))
+            .toList();
+
+        return userList;
+
+      case "show the swiped again later":
+        QuerySnapshot querySnapshot =
+            await FirebaseFirestore.instance.collection("users").get();
+
+        List<UserModel> userList = querySnapshot.docs.map((doc) {
+          return UserModel.fromMap(doc.data() as Map<String, dynamic>);
+        }).toList();
+
+        return userList;
+
+      default:
+        throw ArgumentError('Invalid filter type provided');
+    }
   }
 
 // Burda stream için verileri çekiyoruz.
@@ -388,29 +422,155 @@ class FirestoreDatabaseService {
         event.docs.map((message) => Message.fromMap(message.data())).toList());
   }
 
-// Kalıcı olarak hesap silme. Hesap silinir ama bilgiler kalır. Bilgileri de silmek için ayrı bir fonksiyon daha kullanılması gerekli.
-
-  deleteAccount() async {
-    User? user = await FirebaseAuth.instance.currentUser;
-    print("Şu hesap siliniyor.. ${user!.uid}");
-
+  // Replace the existing deleteAccount method with these new methods
+  Future<void> deleteAccount() async {
     try {
-      user != null
-          ? await user.delete().whenComplete(() {
-              print("Account has been deleted.");
+      // Get current user
+      final User? user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('No user signed in');
+      final String userId = user.uid;
 
-              // Use a different method or import the correct one
-              // For example, you could use a local method or pass the context
-              // Here's a placeholder comment:
-              // TODO: Implement proper snackbar call or error handling
+      // Create a batch operation for atomic deletion
+      final WriteBatch batch = _fireStore.batch();
 
-              print(
-                  "User with the uid of: ${currentUser?.uid} deleted. *************************");
-            })
-          : print("User is null");
+      // 1. Delete all matches where user is involved
+      await _deleteUserMatches(userId, batch);
+
+      // 2. Delete all conversations
+      await _deleteUserConversations(userId, batch);
+
+      // 3. Delete all storage files (profile photos and posts)
+      await _deleteUserStorageFiles(userId);
+
+      // 4. Delete user document and their shared posts
+      final userRef = _fireStore.collection('users').doc(userId);
+      final sharedPostsQuery = await userRef.collection('sharedPosts').get();
+      for (var doc in sharedPostsQuery.docs) {
+        batch.delete(doc.reference);
+      }
+      batch.delete(userRef);
+
+      // Execute the batch
+      await batch.commit();
+
+      // Finally, delete the Firebase Auth account
+      await user.delete();
+
+      print('Successfully deleted all user data');
     } catch (e) {
-      print("***********************************");
-      print(e.toString());
+      print('Error deleting user account: $e');
+      throw Exception('Failed to delete account: $e');
+    }
+  }
+
+  Future<void> _deleteUserMatches(String userId, WriteBatch batch) async {
+    try {
+      // Delete matches where user is the creator
+      final userMatchesRef = _fireStore.collection('matches').doc(userId);
+
+      // Delete quick matches
+      final quickMatchesQuery =
+          await userMatchesRef.collection('quickMatchesList').get();
+      for (var doc in quickMatchesQuery.docs) {
+        batch.delete(doc.reference);
+      }
+
+      // Delete previous matches
+      final previousMatchesQuery =
+          await userMatchesRef.collection('previousMatchesList').get();
+      for (var doc in previousMatchesQuery.docs) {
+        batch.delete(doc.reference);
+      }
+
+      // Delete the matches document itself
+      batch.delete(userMatchesRef);
+
+      // Delete matches where user is matched with others
+      final allMatchesQuery = await _fireStore.collection('matches').get();
+      for (var matchDoc in allMatchesQuery.docs) {
+        // Check quick matches
+        final quickMatches = await matchDoc.reference
+            .collection('quickMatchesList')
+            .where('uid', isEqualTo: userId)
+            .get();
+        for (var doc in quickMatches.docs) {
+          batch.delete(doc.reference);
+        }
+
+        // Check previous matches
+        final previousMatches = await matchDoc.reference
+            .collection('previousMatchesList')
+            .where('uid', isEqualTo: userId)
+            .get();
+        for (var doc in previousMatches.docs) {
+          batch.delete(doc.reference);
+        }
+      }
+    } catch (e) {
+      print('Error deleting matches: $e');
+      throw e;
+    }
+  }
+
+  Future<void> _deleteUserConversations(String userId, WriteBatch batch) async {
+    try {
+      // Get all conversations where user is involved (using the composite ID format from your code)
+      final QuerySnapshot conversationsQuery =
+          await _fireStore.collection('conversations').get();
+
+      for (var doc in conversationsQuery.docs) {
+        String docId = doc.id;
+        // Check if the conversation involves the user (based on your ID format: "uid1--uid2")
+        if (docId.contains(userId)) {
+          // Delete all messages in the conversation
+          final messagesQuery =
+              await doc.reference.collection('messages').get();
+          for (var messageDoc in messagesQuery.docs) {
+            batch.delete(messageDoc.reference);
+          }
+
+          // Delete the conversation document itself
+          batch.delete(doc.reference);
+        }
+      }
+    } catch (e) {
+      print('Error deleting conversations: $e');
+      throw e;
+    }
+  }
+
+  Future<void> _deleteUserStorageFiles(String userId) async {
+    try {
+      final Reference storageRef = FirebaseStorage.instance.ref();
+      final String userPath = 'users/$userId';
+
+      // List all files in user's directory
+      final ListResult result = await storageRef.child(userPath).listAll();
+
+      // Delete all files
+      await Future.forEach(result.items, (Reference ref) async {
+        try {
+          await ref.delete();
+        } catch (e) {
+          print('Error deleting file ${ref.fullPath}: $e');
+          // Continue with other deletions even if one fails
+        }
+      });
+
+      // Delete all subdirectories (including profile_images and posts)
+      await Future.forEach(result.prefixes, (Reference ref) async {
+        final ListResult subResult = await ref.listAll();
+        await Future.forEach(subResult.items, (Reference fileRef) async {
+          try {
+            await fileRef.delete();
+          } catch (e) {
+            print('Error deleting file ${fileRef.fullPath}: $e');
+          }
+        });
+      });
+    } catch (e) {
+      print('Error deleting storage files: $e');
+      throw e;
     }
   }
 
@@ -463,12 +623,29 @@ class FirestoreDatabaseService {
 
   sendMatchesToDatabase(uid, musicUrl, title) async {
     final previousMatchesRef = _instance.doc("matches/${currentUser!.uid}");
-    final matchDoc =
-        previousMatchesRef.collection("previousMatchesList").doc(uid);
+
+    // Check if collection exists
+    final collectionRef = previousMatchesRef.collection("previousMatchesList");
+    final collectionSnapshot = await collectionRef.limit(1).get();
+
+    if (!collectionSnapshot.docs.isNotEmpty) {
+      // Create collection if it doesn't exist
+      await previousMatchesRef.set({
+        'createdAt': DateTime.now(),
+      });
+    }
+
+    final matchDoc = collectionRef.doc(uid);
 
     // Check if we matched the user before
     final likes = await getLikedPeople();
     final hasMatchedBefore = likes.any((like) => like.userId == uid);
+
+    // Don't update if matching with self
+    if (uid == currentUser!.uid) {
+      print("Skipping match with self");
+      return;
+    }
 
     if (hasMatchedBefore) {
       // Update existing match
@@ -612,8 +789,8 @@ class FirestoreDatabaseService {
     }
   }
 
-  Future<Set<UserModel>> getLikedPeople() async {
-    Set<UserModel> likedPeople = {};
+  Future<List<UserModel>> getLikedPeople() async {
+    List<UserModel> likedPeople = [];
 
     // Get liked people from quickMatchesList
     final quickMatchesRef = await _instance
@@ -762,7 +939,7 @@ class FirestoreDatabaseService {
       };
     }).toList();
 
-    await _fireStore.collection('users').doc(currentUser.uid).set({
+    await _fireStore.collection('users').doc(currentUser.uid).update({
       'topArtists': topArtists,
       'lastUpdated': FieldValue.serverTimestamp(),
     });
@@ -964,6 +1141,57 @@ class FirestoreDatabaseService {
     } catch (e) {
       print('Error checking preferences status: $e');
       return false;
+    }
+  }
+
+// Helper method to batch update multiple preferences at once
+  Future<void> updatePreferences({
+    int? age,
+    String? gender,
+    List<String>? interestedIn,
+  }) async {
+    try {
+      Map<String, dynamic> updates = {};
+
+      if (age != null) {
+        if (age < 18 || age > 99) {
+          throw Exception('Age must be between 18 and 99');
+        }
+        updates['age'] = age;
+      }
+
+      if (gender != null) {
+        String normalizedGender = gender.toLowerCase();
+        if (!['male', 'female'].contains(normalizedGender)) {
+          throw Exception('Invalid gender value');
+        }
+        updates['gender'] = normalizedGender;
+      }
+
+      if (interestedIn != null) {
+        List<String> normalizedInterests = interestedIn
+            .map((e) => e.toLowerCase())
+            .where((e) => ['male', 'female'].contains(e))
+            .toList();
+
+        if (normalizedInterests.isEmpty) {
+          throw Exception(
+              'At least one valid gender interest must be selected');
+        }
+        updates['interestedIn'] = normalizedInterests;
+      }
+
+      if (updates.isNotEmpty) {
+        updates['updatedAt'] = FieldValue.serverTimestamp();
+        await _instance
+            .collection("users")
+            .doc(currentUser!.uid)
+            .update(updates);
+        print("Preferences updated successfully");
+      }
+    } catch (e) {
+      print("Error updating preferences: $e");
+      throw Exception('Failed to update preferences: $e');
     }
   }
 }

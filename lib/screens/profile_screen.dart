@@ -143,6 +143,42 @@ class _ProfileScreenState extends State<ProfileScreen>
             children: [
               _buildProfileImages(userData),
               _buildGradientOverlay(),
+              if (userData.profilePhotos?.length > 1)
+                Positioned.fill(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTapDown: (_) {
+                            if (_currentImageIndex > 0) {
+                              setState(() {
+                                _currentImageIndex--;
+                                _pageController.jumpToPage(_currentImageIndex);
+                              });
+                            }
+                          },
+                          child: Container(color: Colors.transparent),
+                        ),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTapDown: (_) {
+                            if (_currentImageIndex <
+                                (userData.profilePhotos?.length ?? 1) - 1) {
+                              setState(() {
+                                _currentImageIndex++;
+                                _pageController.jumpToPage(_currentImageIndex);
+                              });
+                            }
+                          },
+                          child: Container(color: Colors.transparent),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               _buildProfileInfo(userData),
               _buildBackButton(),
               _buildImageIndicators(userData.profilePhotos?.length ?? 1),
@@ -478,12 +514,11 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     return Stack(
       children: [
-        // Main Image
-        Container(
-          height: MediaQuery.of(context).size.height *
-              0.55, // Changed from 0.75 to 0.55
-          width: double.infinity,
+        // 1. Main Image PageView
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.55,
           child: PageView.builder(
+            physics: NeverScrollableScrollPhysics(),
             controller: _pageController,
             itemCount: profilePhotos.length,
             onPageChanged: (index) =>
@@ -495,21 +530,70 @@ class _ProfileScreenState extends State<ProfileScreen>
                 color: const Color(0xFF1A1A1A),
                 child: Icon(Icons.error, color: Color(0xFF6366F1), size: 40.sp),
               ),
-              loadingBuilder: (context, child, progress) => progress == null
-                  ? child
-                  : Container(
-                      color: const Color(0xFF1A1A1A),
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: Color(0xFF6366F1),
-                        ),
-                      ),
-                    ),
             ),
           ),
         ),
 
-        // Image Indicators
+        // 2. Gradient Overlay
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withOpacity(0.2),
+                  Colors.black.withOpacity(0.8),
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              ),
+            ),
+          ),
+        ),
+
+        // 3. Gesture Detection Layer (now above gradient)
+        if (profilePhotos.length > 1)
+          Positioned.fill(
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (_) {
+                      if (_currentImageIndex > 0) {
+                        setState(() {
+                          _currentImageIndex--;
+                          _pageController.jumpToPage(_currentImageIndex);
+                        });
+                      }
+                    },
+                    child: Container(
+                      color: Colors.transparent,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (_) {
+                      if (_currentImageIndex < profilePhotos.length - 1) {
+                        setState(() {
+                          _currentImageIndex++;
+                          _pageController.jumpToPage(_currentImageIndex);
+                        });
+                      }
+                    },
+                    child: Container(
+                      color: Colors.transparent,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        // 4. Image Indicators (top layer)
         if (profilePhotos.length > 1)
           Positioned(
             top: 40.h,

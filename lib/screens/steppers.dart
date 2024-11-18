@@ -1,8 +1,6 @@
 import 'dart:io';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
@@ -12,7 +10,6 @@ import 'package:spotify_project/business/Spotify_Logic/constants.dart';
 import 'package:spotify_project/business/Spotify_Logic/services/fetch_artists.dart';
 import 'package:spotify_project/business/Spotify_Logic/services/fetch_top_10_tracks_of_the_user.dart';
 import 'package:spotify_project/main.dart';
-import 'package:spotify_project/screens/quick_match_screen.dart';
 import 'package:spotify_project/screens/register_page.dart';
 import 'package:spotify_project/widgets/personal_info_bar.dart';
 
@@ -63,7 +60,7 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
   Future<File?> cropImage(File imageFile) async {
     CroppedFile? croppedImage = await ImageCropper().cropImage(
       sourcePath: imageFile.path,
-      aspectRatio: CropAspectRatio(ratioX: 1, ratioY: 1),
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
     );
     return croppedImage != null ? File(croppedImage.path) : null;
   }
@@ -113,17 +110,17 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF121212),
+      backgroundColor: const Color(0xFF121212),
       body: SafeArea(
         child: Theme(
           data: ThemeData(
-            colorScheme: ColorScheme.dark(
+            colorScheme: const ColorScheme.dark(
               primary: Color(0xFF1DB954), // Spotify green
               secondary: Color(0xFF1DB954), // Spotify green
               surface: Color(0xFF121212),
               background: Color(0xFF121212),
             ),
-            canvasColor: Color(0xFF121212),
+            canvasColor: const Color(0xFF121212),
           ),
           child: Stepper(
             type: StepperType.horizontal,
@@ -151,7 +148,7 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
                         padding: EdgeInsets.only(right: 16.w),
                         child: ElevatedButton(
                           onPressed: details.onStepCancel,
-                          child: Text('Back',
+                          child: const Text('Back',
                               style: TextStyle(color: Colors.white)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.grey,
@@ -164,10 +161,10 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
                     if (_index < 4)
                       ElevatedButton(
                         onPressed: details.onStepContinue,
-                        child:
-                            Text('Next', style: TextStyle(color: Colors.white)),
+                        child: const Text('Next',
+                            style: TextStyle(color: Colors.white)),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Color(0xFF1DB954),
+                          backgroundColor: const Color(0xFF1DB954),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -178,10 +175,18 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
                         onPressed: () async {
                           try {
                             await _firestoreDatabaseService.saveUser(
-                              name: _controllerForName.text,
-                              age: int.parse(_ageController.text),
-                              gender: _selectedGender,
-                              interestedIn: _interestedIn,
+                              name: _controllerForName.text.isEmpty
+                                  ? "Anonymous"
+                                  : _controllerForName.text,
+                              age: _ageController.text.isEmpty
+                                  ? 18
+                                  : int.parse(_ageController.text),
+                              gender: _selectedGender.isEmpty
+                                  ? "Not specified"
+                                  : _selectedGender,
+                              interestedIn: _interestedIn.isEmpty
+                                  ? ["Not specified"]
+                                  : _interestedIn,
                             );
                             await uploadImagesToDatabase();
                             Navigator.of(context).pushAndRemoveUntil(
@@ -196,10 +201,10 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
                             );
                           }
                         },
-                        child: Text('Finish',
+                        child: const Text('Finish',
                             style: TextStyle(color: Colors.white)),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Color(0xFF1DB954),
+                          backgroundColor: const Color(0xFF1DB954),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -213,30 +218,34 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
               Step(
                 isActive: _index >= 0,
                 state: _index > 0 ? StepState.complete : StepState.indexed,
-                title: Text('Name', style: TextStyle(color: Colors.white)),
+                title:
+                    const Text('Name', style: TextStyle(color: Colors.white)),
                 content: _buildNameStep(),
               ),
               Step(
                 isActive: _index >= 1,
                 state: _index > 1 ? StepState.complete : StepState.indexed,
-                title: Text('Age', style: TextStyle(color: Colors.white)),
+                title: const Text('Age', style: TextStyle(color: Colors.white)),
                 content: _buildAgeStep(),
               ),
               Step(
                 isActive: _index >= 2,
                 state: _index > 2 ? StepState.complete : StepState.indexed,
-                title: Text('Gender', style: TextStyle(color: Colors.white)),
+                title:
+                    const Text('Gender', style: TextStyle(color: Colors.white)),
                 content: _buildGenderStep(),
               ),
               Step(
                 isActive: _index >= 3,
                 state: _index > 3 ? StepState.complete : StepState.indexed,
-                title: Text('Interest', style: TextStyle(color: Colors.white)),
+                title: const Text('Interest',
+                    style: TextStyle(color: Colors.white)),
                 content: _buildInterestsStep(),
               ),
               Step(
                 isActive: _index >= 4,
-                title: Text('Photos', style: TextStyle(color: Colors.white)),
+                title:
+                    const Text('Photos', style: TextStyle(color: Colors.white)),
                 content: _buildPhotoStep(),
               ),
             ],
@@ -286,10 +295,10 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
         SizedBox(height: 20.h),
         Container(
           decoration: BoxDecoration(
-            color: Color(0xFF282828),
+            color: const Color(0xFF282828),
             borderRadius: BorderRadius.circular(12),
           ),
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           child: TextField(
             controller: _ageController,
             keyboardType: TextInputType.number,
@@ -325,13 +334,13 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
               groupValue: _selectedGender,
               onChanged: (value) => setState(() => _selectedGender = value!),
             ),
-            Text('Male', style: TextStyle(color: Colors.white)),
+            const Text('Male', style: TextStyle(color: Colors.white)),
             Radio<String>(
               value: 'female',
               groupValue: _selectedGender,
               onChanged: (value) => setState(() => _selectedGender = value!),
             ),
-            Text('Female', style: TextStyle(color: Colors.white)),
+            const Text('Female', style: TextStyle(color: Colors.white)),
           ],
         ),
       ],
@@ -352,13 +361,13 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
         SizedBox(height: 20.h),
         Container(
           decoration: BoxDecoration(
-            color: Color(0xFF282828),
+            color: const Color(0xFF282828),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
             children: [
               _buildInterestOption('male', 'Men'),
-              Divider(color: Colors.white12),
+              const Divider(color: Colors.white12),
               _buildInterestOption('female', 'Women'),
             ],
           ),
@@ -389,7 +398,7 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
             }
           });
         },
-        activeColor: Color(0xFF1DB954),
+        activeColor: const Color(0xFF1DB954),
       ),
       onTap: () {
         setState(() {
@@ -416,7 +425,7 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
         SizedBox(height: 20.h),
         GridView.builder(
           shrinkWrap: true,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
@@ -429,7 +438,7 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
                   : pickImage(ImageSource.gallery),
               child: Container(
                 decoration: BoxDecoration(
-                  color: Color(0xFF1E1E1E),
+                  color: const Color(0xFF1E1E1E),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: _images.length > index
@@ -451,19 +460,19 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
                                 });
                               },
                               child: Container(
-                                padding: EdgeInsets.all(2),
-                                decoration: BoxDecoration(
+                                padding: const EdgeInsets.all(2),
+                                decoration: const BoxDecoration(
                                   color: Colors.red,
                                   shape: BoxShape.circle,
                                 ),
-                                child: Icon(Icons.close,
+                                child: const Icon(Icons.close,
                                     color: Colors.white, size: 20),
                               ),
                             ),
                           ),
                         ],
                       )
-                    : Icon(Icons.add_photo_alternate,
+                    : const Icon(Icons.add_photo_alternate,
                         color: Colors.grey, size: 50),
               ),
             );
@@ -518,8 +527,8 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       behavior: SnackBarBehavior.floating,
       margin: EdgeInsets.symmetric(horizontal: 30.w, vertical: 30.h),
-      backgroundColor: Color.fromARGB(255, 65, 221, 4),
-      duration: Duration(milliseconds: 500),
+      backgroundColor: const Color.fromARGB(255, 65, 221, 4),
+      duration: const Duration(milliseconds: 500),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
@@ -633,7 +642,7 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
     try {
       CroppedFile? croppedImage = await ImageCropper().cropImage(
         sourcePath: imageFile.path,
-        aspectRatio: CropAspectRatio(ratioX: 1, ratioY: 1),
+        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
         compressQuality: 70,
         maxWidth: 1080,
         maxHeight: 1080,
@@ -730,7 +739,7 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
           if (_index > 0)
             ElevatedButton(
               onPressed: () => setState(() => _index -= 1),
-              child: Text('Back', style: TextStyle(color: Colors.white)),
+              child: const Text('Back', style: TextStyle(color: Colors.white)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.grey,
                 shape: RoundedRectangleBorder(
@@ -749,10 +758,10 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
                   },
             child: Text(
               _index == 4 ? 'Finish' : 'Next',
-              style: TextStyle(color: Colors.white),
+              style: const TextStyle(color: Colors.white),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFF1DB954),
+              backgroundColor: const Color(0xFF1DB954),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -775,7 +784,7 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
   void _showSuccess(String message) {
     _showSnackBar(
       message: message,
-      backgroundColor: Color(0xFF1DB954),
+      backgroundColor: const Color(0xFF1DB954),
       icon: Icons.check_circle_outline,
     );
   }
@@ -811,7 +820,7 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
         ),
-        margin: EdgeInsets.all(16),
+        margin: const EdgeInsets.all(16),
         duration: duration,
         action: SnackBarAction(
           label: 'Dismiss',
@@ -832,18 +841,18 @@ class SteppersForClientsWidgetState extends State<SteppersForClientsWidget> {
       builder: (BuildContext context) {
         return Center(
           child: Container(
-            padding: EdgeInsets.all(20),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Color(0xFF282828),
+              color: const Color(0xFF282828),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircularProgressIndicator(
+                const CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1DB954)),
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Text(
                   'Please wait...',
                   style: TextStyle(

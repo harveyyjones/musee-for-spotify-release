@@ -117,7 +117,7 @@ class MyApp extends StatelessWidget {
           builder: (context, snapshot) {
             if (snapshot.hasData) {
               // return Home(businessLogic: businessLogic);
-              return OwnProfileScreenForClients();
+              return Home();
             } else {
               return LandingPage();
             }
@@ -175,7 +175,7 @@ class _EverythingState extends State<Everything>
   @override
   void initState() {
     super.initState();
-    futurePlaylists = fetchPlaylists();
+    // futurePlaylists = fetchPlaylists();
     firestoreDatabaseService.updateActiveStatus();
 
     _pulseController = AnimationController(

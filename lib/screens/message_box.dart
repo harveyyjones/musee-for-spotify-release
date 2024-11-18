@@ -7,6 +7,7 @@ import 'package:spotify_project/Business_Logic/chat_services/chat_database_servi
 import 'package:spotify_project/Business_Logic/firestore_database_service.dart';
 import 'package:spotify_project/Helpers/helpers.dart';
 import 'package:spotify_project/screens/chat_screen.dart';
+import 'package:spotify_project/screens/profile_screen.dart';
 import 'package:spotify_project/widgets/bottom_bar.dart';
 
 class MessageScreen extends StatefulWidget {
@@ -27,9 +28,10 @@ class _MessageScreenState extends State<MessageScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF121212), // Spotify's dark background color
+      backgroundColor:
+          const Color(0xFF121212), // Spotify's dark background color
       appBar: AppBar(
-        backgroundColor: Color(0xFF121212),
+        backgroundColor: const Color(0xFF121212),
         elevation: 0,
         automaticallyImplyLeading:
             false, // Add this line to remove the back arrow
@@ -47,11 +49,12 @@ class _MessageScreenState extends State<MessageScreen> {
         children: [
           Container(
             height: 110.h,
-            child: FutureBuilder<Set<UserModel>>(
+            child: FutureBuilder<List<UserModel>>(
               future: firestoreDatabaseService.getLikedPeople(),
               builder: (context, snapshot) {
+                var data = snapshot.data;
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(
+                  return const Center(
                       child:
                           CircularProgressIndicator(color: Color(0xFF1DB954)));
                 }
@@ -74,15 +77,23 @@ class _MessageScreenState extends State<MessageScreen> {
                       padding: EdgeInsets.only(right: 16.w),
                       child: Column(
                         children: [
-                          CircleAvatar(
-                            radius: 30.r,
-                            backgroundImage: user.profilePhotos.isNotEmpty
-                                ? NetworkImage(user.profilePhotos[0])
-                                : null,
-                            backgroundColor: Color(0xFF1DB954),
-                            child: user.profilePhotos.isEmpty
-                                ? Icon(Icons.person, color: Colors.white)
-                                : null,
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.of(context).push(CupertinoPageRoute(
+                                  builder: (context) => ChatScreen(user.userId!,
+                                      user.profilePhotos.first, user.name!)));
+                            },
+                            child: CircleAvatar(
+                              radius: 30.r,
+                              backgroundImage: user.profilePhotos.isNotEmpty
+                                  ? NetworkImage(user.profilePhotos[0])
+                                  : null,
+                              backgroundColor: const Color(0xFF1DB954),
+                              child: user.profilePhotos.isEmpty
+                                  ? const Icon(Icons.person,
+                                      color: Colors.white)
+                                  : null,
+                            ),
                           ),
                           SizedBox(height: 8.h),
                           Text(
@@ -105,7 +116,7 @@ class _MessageScreenState extends State<MessageScreen> {
               future: _chatDatabaseService.getConversations(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(
+                  return const Center(
                       child:
                           CircularProgressIndicator(color: Color(0xFF1DB954)));
                 }
@@ -124,7 +135,7 @@ class _MessageScreenState extends State<MessageScreen> {
                         snapshot.data![index].receiverID),
                     builder: (context, snapshotForUserInfo) {
                       if (!snapshotForUserInfo.hasData) {
-                        return SizedBox.shrink();
+                        return const SizedBox.shrink();
                       }
                       var data = snapshotForUserInfo.data!;
                       return _buildConversationTile(
@@ -158,9 +169,9 @@ class _MessageScreenState extends State<MessageScreen> {
         padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
         decoration: BoxDecoration(
           color: conversation.isSeen != null && conversation.isSeen
-              ? Color(0xFF121212)
-              : Color(0xFF282828),
-          border: Border(
+              ? const Color(0xFF121212)
+              : const Color(0xFF282828),
+          border: const Border(
             bottom: BorderSide(color: Colors.white10, width: 0.5),
           ),
         ),
@@ -171,9 +182,9 @@ class _MessageScreenState extends State<MessageScreen> {
               backgroundImage: user.profilePhotos.isNotEmpty
                   ? NetworkImage(user.profilePhotos[0])
                   : null,
-              backgroundColor: Color(0xFF1DB954),
+              backgroundColor: const Color(0xFF1DB954),
               child: user.profilePhotos.isEmpty
-                  ? Icon(Icons.person, color: Colors.white)
+                  ? const Icon(Icons.person, color: Colors.white)
                   : null,
             ),
             SizedBox(width: 16.w),
@@ -202,7 +213,7 @@ class _MessageScreenState extends State<MessageScreen> {
                 ],
               ),
             ),
-            Icon(
+            const Icon(
               Icons.chevron_right,
               color: Colors.white54,
             ),

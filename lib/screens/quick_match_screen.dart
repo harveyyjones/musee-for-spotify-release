@@ -18,15 +18,18 @@ class _QuickMatchesScreenState extends State<QuickMatchesScreen> {
   final FirestoreDatabaseService _firestoreDatabaseService =
       FirestoreDatabaseService();
   Future<List<UserModel>>? _dataFuture;
+  late String _filterType;
 
   @override
   void initState() {
+    _filterType = "show the swiped again later";
     super.initState();
     print("QuickMatchesScreen initState called");
-    _dataFuture = _loadData();
+    _firestoreDatabaseService.updateActiveStatus();
+    _dataFuture = _loadData(_filterType);
   }
 
-  Future<List<UserModel>> _loadData() async {
+  Future<List<UserModel>> _loadData(String filterType) async {
     print("_loadData started");
     try {
       // String currentlyListeningMusicName =
@@ -42,7 +45,8 @@ class _QuickMatchesScreenState extends State<QuickMatchesScreen> {
       // );
       // print("getUserDatasToMatch completed");
 
-      List<UserModel> users = await _firestoreDatabaseService.getAllUsersData();
+      List<UserModel> users = await _firestoreDatabaseService.getAllUsersData(
+          filterType: filterType);
       print("getAllUsersData completed. User count: ${users.length}");
       return users;
     } catch (e) {
