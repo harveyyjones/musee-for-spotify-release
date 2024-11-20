@@ -12,6 +12,9 @@ import 'package:spotify_project/Business_Logic/Models/user_model.dart';
 import 'package:spotify_project/Helpers/helpers.dart';
 import 'package:spotify_project/business/Spotify_Logic/constants.dart';
 import 'package:spotify_project/business/business_logic.dart';
+import 'package:spotify_project/business/payment_service/call_payment.dart';
+import 'package:spotify_project/business/payment_service/payment_screen.dart';
+import 'package:spotify_project/business/payment_service/payment_service.dart';
 import 'package:spotify_project/screens/landing_screen.dart';
 import 'package:spotify_project/screens/own_profile_screens_for_clients.dart';
 import 'package:spotify_project/screens/register_page.dart';
@@ -48,6 +51,7 @@ void callbackDispatcher() {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await PaymentService().initialize();
 
   await Firebase.initializeApp(
     options: const FirebaseOptions(
@@ -117,7 +121,10 @@ class MyApp extends StatelessWidget {
           builder: (context, snapshot) {
             if (snapshot.hasData) {
               // return Home(businessLogic: businessLogic);
-              return Home();
+              return const PaymentButton();
+              // return const PaymentScreen(
+              //   amount: 1,
+              // );
             } else {
               return LandingPage();
             }
