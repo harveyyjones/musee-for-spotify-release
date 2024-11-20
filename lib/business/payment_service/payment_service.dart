@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class PaymentService {
   static const String _baseUrl = 'https://api.stripe.com/v1';
-  static const String _secretKey =
-      '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';
-  static const String _publishableKey =
-      'pk_live_51PvbvsP9evS8B1HZCOynfSg8JaGaIxqXbFb2pLdgJX5dyH9jQokrUf5fgw6OXqywZCXdOf047hs0BGILaZ4De1YU00ojjfD2YS';
+  static String get _secretKey => dotenv.env['STRIPE_SECRET_KEY'] ?? '';
+  static String get _publishableKey =>
+      dotenv.env['STRIPE_PUBLISHABLE_KEY'] ?? '';
 
   // Singleton pattern
   static final PaymentService _instance = PaymentService._internal();
