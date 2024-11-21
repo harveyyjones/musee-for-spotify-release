@@ -2,24 +2,22 @@ import 'dart:async';
 import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_database/ui/utils/stream_subscriber_mixin.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:spotify_project/Business_Logic/Models/user_model.dart';
+import 'package:spotify_project/Business_Logic/firestore_database_service.dart';
+import 'package:spotify_project/Business_Logic/firestore_database_service.dart';
+import 'package:spotify_project/Business_Logic/firestore_database_service.dart';
 import 'package:spotify_project/Helpers/helpers.dart';
 import 'package:spotify_project/business/Spotify_Logic/constants.dart';
 import 'package:spotify_project/business/business_logic.dart';
-import 'package:spotify_project/business/payment_service/call_payment.dart';
-import 'package:spotify_project/business/payment_service/payment_screen.dart';
+import 'package:spotify_project/business/subscription_service.dart';
+import 'package:spotify_project/screens/premium_subscription_screen.dart';
 import 'package:spotify_project/business/payment_service/payment_service.dart';
 import 'package:spotify_project/screens/landing_screen.dart';
-import 'package:spotify_project/screens/own_profile_screens_for_clients.dart';
-import 'package:spotify_project/screens/register_page.dart';
-import 'package:spotify_project/screens/steppers.dart';
 import 'package:spotify_project/widgets/bottom_bar.dart';
 import 'package:spotify_project/widgets/match_loading_widget.dart';
 import 'package:spotify_sdk/models/connection_status.dart';
@@ -29,6 +27,7 @@ import 'package:spotify_project/business/Spotify_Logic/Models/top_playlists.dart
 import 'package:spotify_project/business/Spotify_Logic/services/fetch_playlists.dart';
 import 'package:workmanager/workmanager.dart';
 
+import 'Business_Logic/firestore_database_service.dart';
 import 'screens/quick_match_screen.dart';
 
 import 'package:spotify_project/Business_Logic/firestore_database_service.dart';
@@ -91,6 +90,8 @@ void main() async {
     print('Error connecting to Spotify: $e');
     // You might want to show an error dialog or handle the error in some way
   }
+  final subscriptionService = SubscriptionService();
+  await subscriptionService.checkSubscriptionStatus();
 
   runApp(MyApp(businessLogic: businessLogic));
 }
@@ -124,7 +125,7 @@ class MyApp extends StatelessWidget {
           builder: (context, snapshot) {
             if (snapshot.hasData) {
               // return Home(businessLogic: businessLogic);
-              return const PaymentButton();
+              return Home();
               // return const PaymentScreen(
               //   amount: 1,
               // );

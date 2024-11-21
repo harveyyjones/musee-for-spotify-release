@@ -15,9 +15,8 @@ import 'package:spotify_project/business/Spotify_Logic/Models/top_10_track_model
 import 'package:spotify_project/business/Spotify_Logic/Models/top_artists_of_the_user.dart'
     as models;
 import 'package:spotify_project/business/Spotify_Logic/services/fetch_artists.dart';
+import 'package:spotify_project/business/subscription_service.dart';
 import 'package:spotify_project/screens/register_page.dart';
-import 'package:spotify_project/screens/sharePostScreen.dart' as share_screen;
-import 'package:spotify_project/screens/sharePostScreen.dart';
 import 'package:spotify_sdk/spotify_sdk.dart';
 import 'Models/user_model.dart';
 
@@ -71,66 +70,38 @@ class FirestoreDatabaseService {
   Future<List<UserModel>> getAllUsersData({required String filterType}) async {
     switch (filterType) {
       case "never see the unliked again":
-        // First get all users
+// First get all users
         QuerySnapshot querySnapshot =
             await FirebaseFirestore.instance.collection("users").get();
-
-        // Get previously swiped users
+// Get previously swiped users
         var previousMatchesRef = await _instance
             .collection("matches")
             .doc(currentUser!.uid)
             .collection("quickMatchesList")
             .get();
-
-        // Create set of previously unliked user IDs
+// Create set of previously unliked user IDs
         Set<String> unlikedUserIds = {};
         for (var doc in previousMatchesRef.docs) {
           if (doc.data()["isLiked"] == false) {
             unlikedUserIds.add(doc.data()["uid"] as String);
           }
         }
-
-        // Filter out previously unliked users
+// Filter out previously unliked users
         List<UserModel> userList = querySnapshot.docs
             .where((doc) => !unlikedUserIds.contains(doc.id))
             .map((doc) => UserModel.fromMap(doc.data() as Map<String, dynamic>))
             .toList();
-
         return userList;
-
       case "show the swiped again later":
         QuerySnapshot querySnapshot =
             await FirebaseFirestore.instance.collection("users").get();
-
         List<UserModel> userList = querySnapshot.docs.map((doc) {
           return UserModel.fromMap(doc.data() as Map<String, dynamic>);
         }).toList();
-
         return userList;
-
       default:
         throw ArgumentError('Invalid filter type provided');
     }
-  }
-
-// Burda stream için verileri çekiyoruz.
-  Stream<DocumentSnapshot<Map<String, dynamic>>> getProfileData() {
-    var ref = _instance.collection("users").doc(currentUser!.uid).snapshots();
-    return ref;
-  }
-
-// Paylaşma tuşuna basıldıktan ve foto seçildikten sonra db'ye yazdırılan fotonun bilgilerini çeker.
-  Future<DocumentSnapshot<Map<String, dynamic>>>
-      getBeingSharedPostData() async {
-    var paylasilanPostSayisi = await getSharedPostNumber();
-    final ref = await _instance
-        .collection("users")
-        .doc(currentUser!.uid)
-        .collection("sharedPosts")
-        .doc("post$paylasilanPostSayisi")
-        .get();
-
-    return ref;
   }
 
   getAllSharedPosts() {
@@ -339,61 +310,15 @@ class FirestoreDatabaseService {
     return docs0;
   }
 
-// Post paylaşma.
-  Future sharePost(ImageSource source, context) async {
-    String? downloadImageURL;
-    File? _image;
-    try {
-      uploadImageToDatabase() async {
-        UploadTask? uploadTask;
-        Reference ref = await FirebaseStorage.instance
-            .ref()
-            .child("users")
-            .child(currentUser!.uid)
-            .child("post${await getSharedPostNumber()}.jpg");
-
-        uploadTask = ref.putFile(_image!);
-        await (uploadTask.whenComplete(() => ref.getDownloadURL().then((value) {
-              downloadImageURL = value;
-            })));
-        print("Paylaşılan post URL'i : $downloadImageURL");
-
-        await _instance
-            .collection("users")
-            .doc(currentUser!.uid)
-            .collection("sharedPosts")
-            .doc("post${await getSharedPostNumber() + 1}")
-            .set({
-          "sharedPost": downloadImageURL,
-          "caption": "caption this",
-          "timeStamp": Timestamp.now()
-        }).then((value) => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => SharePostScreen(),
-                )));
-      }
-
-      final image = await ImagePicker().pickImage(source: source);
-      if (image == null) {
-        return;
-      } else {
-        File? img = File(image.path);
-        img = (await cropImage(img));
-
-        _image = img;
-
-        uploadImageToDatabase();
-      }
-    } on PlatformException catch (e) {
-      print(e.message);
-    }
-  }
-
 // Çıkış yaparken
   signOut(context) async {
     await FirebaseAuth.instance.signOut();
-    share_screen.callSnackbar("Signed Out", Colors.green, context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Signed Out'),
+        backgroundColor: Colors.green,
+      ),
+    );
   }
 
 // Ana sayfadaki selamlama mesajlarında kullanmak için.
@@ -1193,5 +1118,49 @@ class FirestoreDatabaseService {
       print("Error updating preferences: $e");
       throw Exception('Failed to update preferences: $e');
     }
+  }
+
+  Future<void> updatePaymentDuration() async {
+    try {
+      final subDoc = await _fireStore
+          .collection('users')
+          .doc(currentUser!.uid)
+          .collection('subscription')
+          .doc('status')
+          .get();
+
+      if (!subDoc.exists) {
+        // First time premium purchase
+        await _fireStore
+            .collection('users')
+            .doc(currentUser!.uid)
+            .collection('subscription')
+            .doc('status')
+            .set({
+          'endDate':
+              DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+          'isActive': true
+        });
+      } else {
+        // Extend existing premium
+        DateTime currentEndDate = DateTime.parse(subDoc.data()!['endDate']);
+        DateTime newEndDate = currentEndDate.add(Duration(days: 30));
+
+        await _fireStore
+            .collection('users')
+            .doc(currentUser!.uid)
+            .collection('subscription')
+            .doc('status')
+            .update(
+                {'endDate': newEndDate.toIso8601String(), 'isActive': true});
+      }
+    } catch (e) {
+      print('Error updating subscription: $e');
+      throw Exception('Failed to update subscription');
+    }
+  }
+
+  Stream<DocumentSnapshot<Map<String, dynamic>>> getProfileData() {
+    return _instance.collection("users").doc(currentUser!.uid).snapshots();
   }
 }

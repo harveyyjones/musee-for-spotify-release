@@ -27,7 +27,7 @@ class UserModel {
     this.majorInfo = '',
     this.clinicLocation = '',
     this.profilePhotoURL = '',
-    this.profilePhotos = const [],
+    List<String>? profilePhotos,
     this.biography = '',
     this.clinicName = '',
     this.gender = '',
@@ -39,7 +39,12 @@ class UserModel {
     this.isUserListening = false,
     this.age = 0,
     this.interestedIn = const [],
-  });
+  }) : this.profilePhotos = (profilePhotos?.isEmpty ?? true) ||
+                (profilePhotos?.first.trim().isEmpty ?? true)
+            ? [
+                'https://c4.wallpaperflare.com/wallpaper/436/55/826/abstract-black-wallpaper-preview.jpg'
+              ]
+            : profilePhotos!;
 
   Map<String, dynamic> toMap() {
     return {
@@ -70,7 +75,23 @@ class UserModel {
         name = map["name"] as String? ?? '',
         majorInfo = map["majorInfo"] as String? ?? '',
         profilePhotoURL = map["profilePhotoURL"] as String? ?? '',
-        profilePhotos = List<String>.from(map["profilePhotos"] ?? []),
+        profilePhotos =
+            ((map["profilePhotos"] as List<dynamic>?)?.isEmpty ?? true) ||
+                    ((map["profilePhotos"] as List<dynamic>?)
+                            ?.first
+                            .toString()
+                            .trim()
+                            .isEmpty ??
+                        true)
+                ? [
+                    'https://c4.wallpaperflare.com/wallpaper/436/55/826/abstract-black-wallpaper-preview.jpg'
+                  ]
+                : (map["profilePhotos"] as List<dynamic>?)
+                        ?.map((e) => e.toString())
+                        .toList() ??
+                    [
+                      'https://c4.wallpaperflare.com/wallpaper/436/55/826/abstract-black-wallpaper-preview.jpg'
+                    ],
         clinicLocation = map["clinicLocation"] as String? ?? '',
         biography = map["biography"] as String? ?? '',
         createdAt = (map["createdAt"] as Timestamp?)?.toDate(),

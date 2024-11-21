@@ -1,7 +1,10 @@
 // lib/screens/payment_screen.dart
 import 'package:flutter/material.dart';
+import 'package:spotify_project/Business_Logic/firestore_database_service.dart';
 import 'package:spotify_project/business/payment_service/payment_service.dart';
 import 'package:spotify_project/screens/register_page.dart';
+
+FirestoreDatabaseService _firestoreDatabaseService = FirestoreDatabaseService();
 
 // New PaymentResult class added at the top
 class PaymentResult {
@@ -123,6 +126,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
         Navigator.of(context).pop(PaymentResult(
           success: true,
         ));
+        print('Payment was successful');
+
+        // TODO: Add the logic to update the user's subscription status
+        _firestoreDatabaseService.updatePaymentDuration();
       } else if (mounted) {
         print('Payment was not successful');
         setState(() => _status = 'Payment failed');

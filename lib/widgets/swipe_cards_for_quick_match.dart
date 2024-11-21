@@ -7,9 +7,13 @@ import '../Business_Logic/firestore_database_service.dart';
 
 class SwipeCardWidgetForQuickMatch extends StatefulWidget {
   final List<UserModel> snapshotData;
+  final Function(bool isLike)? onSwipe;
 
-  const SwipeCardWidgetForQuickMatch({Key? key, required this.snapshotData})
-      : super(key: key);
+  const SwipeCardWidgetForQuickMatch({
+    Key? key,
+    required this.snapshotData,
+    this.onSwipe,
+  }) : super(key: key);
 
   @override
   _SwipeCardWidgetForQuickMatchState createState() =>
@@ -30,10 +34,12 @@ class _SwipeCardWidgetForQuickMatchState
       return SwipeItem(
         content: userData,
         likeAction: () {
+          widget.onSwipe?.call(true);
           _firestoreDatabaseService.updateIsLikedAsQuickMatch(
               true, userData.userId!);
         },
         nopeAction: () {
+          widget.onSwipe?.call(false);
           _firestoreDatabaseService.updateIsLikedAsQuickMatch(
               false, userData.userId!);
         },
@@ -84,9 +90,11 @@ class _SwipeCardWidgetForQuickMatchState
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           _buildActionButton(Icons.close, Colors.red, () {
+            widget.onSwipe?.call(false);
             _matchEngine.currentItem?.nope();
           }),
           _buildActionButton(Icons.favorite, Colors.green, () {
+            widget.onSwipe?.call(true);
             _matchEngine.currentItem?.like();
           }),
         ],

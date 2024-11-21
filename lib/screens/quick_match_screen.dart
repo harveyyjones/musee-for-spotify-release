@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:spotify_project/Business_Logic/Models/user_model.dart';
-import 'package:spotify_project/Business_Logic/firestore_database_service.dart';
-import 'package:spotify_project/Helpers/helpers.dart';
-import 'package:spotify_project/screens/chat_screen.dart';
+import 'package:spotify_project/business/subscription_service.dart';
+import 'package:spotify_project/business/swipe_tracker.dart';
+import 'package:spotify_project/screens/premium_subscription_screen.dart';
 import 'package:spotify_project/widgets/swipe_cards_for_quick_match.dart';
-import 'package:spotify_sdk/spotify_sdk.dart';
 
 class QuickMatchesScreen extends StatefulWidget {
   const QuickMatchesScreen({Key? key}) : super(key: key);
@@ -15,40 +14,38 @@ class QuickMatchesScreen extends StatefulWidget {
 }
 
 class _QuickMatchesScreenState extends State<QuickMatchesScreen> {
-  final FirestoreDatabaseService _firestoreDatabaseService =
-      FirestoreDatabaseService();
+  final SwipeTracker _swipeTracker = SwipeTracker();
   Future<List<UserModel>>? _dataFuture;
   late String _filterType;
 
   @override
   void initState() {
-    _filterType = "show the swiped again later";
     super.initState();
-    print("QuickMatchesScreen initState called");
-    _firestoreDatabaseService.updateActiveStatus();
+    _filterType = "show the swiped again later";
+    _loadInitialData();
+  }
+
+  void _loadInitialData() {
     _dataFuture = _loadData(_filterType);
   }
 
   Future<List<UserModel>> _loadData(String filterType) async {
-    print("_loadData started");
     try {
-      // String currentlyListeningMusicName =
-      //     await _firestoreDatabaseService.returnCurrentlyListeningMusicName();
-      // print("Current music: $currentlyListeningMusicName");
-
-      // bool isSpotifyActive = await SpotifySdk.isSpotifyAppActive;
-      // print("Spotify active: $isSpotifyActive");
-
-      // await _firestoreDatabaseService.getUserDatasToMatch(
-      //   currentlyListeningMusicName,
-      //   isSpotifyActive,
-      // );
-      // print("getUserDatasToMatch completed");
-
-      List<UserModel> users = await _firestoreDatabaseService.getAllUsersData(
-          filterType: filterType);
-      print("getAllUsersData completed. User count: ${users.length}");
+      // Try to get filtered users
+      List<UserModel> users = await _swipeTracker.getFilteredUsers(
+        filterType: filterType,
+      );
       return users;
+    } on SwipeLimitException {
+      // Handle swipe limit reached
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+              builder: (context) => const SubscribePremiumScreen()),
+        );
+      });
+      return [];
     } catch (e) {
       print('Error in _loadData: $e');
       return [];
@@ -57,37 +54,95 @@ class _QuickMatchesScreenState extends State<QuickMatchesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print("QuickMatchesScreen build method called");
     return Scaffold(
-      backgroundColor: const Color.fromARGB(
-          251, 0, 0, 0), // Add this line to set a dark background
+      backgroundColor: const Color(0xFF121212),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: StreamBuilder<int>(
+          stream: _swipeTracker.getRemainingSwipes(),
+          builder: (context, snapshot) {
+            if (!isSubscriptionActive && snapshot.hasData) {
+              return Container(
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1DB954), Color(0xFF1ED760)],
+                  ),
+                  borderRadius: BorderRadius.circular(20.r),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.favorite,
+                      color: Colors.white,
+                      size: 18.sp,
+                    ),
+                    SizedBox(width: 4.w),
+                    Text(
+                      '${snapshot.data} likes left',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
       body: FutureBuilder<List<UserModel>>(
         future: _dataFuture,
         builder: (context, snapshot) {
-          print("FutureBuilder state: ${snapshot.connectionState}");
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            print("FutureBuilder error: ${snapshot.error}");
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data == null) {
-            print("No data available");
-            return const Center(child: Text('No data available'));
-          } else {
-            final users = snapshot.data!;
-            print("Data available. User count: ${users.length}");
-            return Container(
-              child: users.isEmpty
-                  ? const Center(
-                      child: Text('No users found',
-                          style: TextStyle(
-                              color: Color.fromARGB(
-                                  255, 24, 24, 24)))) // Add text style
-                  : SwipeCardWidgetForQuickMatch(
-                      snapshotData: users,
-                    ),
+            return const Center(
+                child: CircularProgressIndicator(color: Color(0xFF1DB954)));
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Text(
+                'Unable to load matches',
+                style: TextStyle(color: Colors.white70, fontSize: 16.sp),
+              ),
             );
           }
+
+          final users = snapshot.data ?? [];
+
+          if (users.isEmpty) {
+            return Center(
+              child: Text(
+                'No matches available',
+                style: TextStyle(color: Colors.white70, fontSize: 16.sp),
+              ),
+            );
+          }
+
+          return SwipeCardWidgetForQuickMatch(
+            snapshotData: users,
+            onSwipe: (bool isLike) async {
+              await _swipeTracker.trackSwipe(isLike: isLike);
+
+              // Reload data if needed
+              if (!isSubscriptionActive) {
+                final canSwipe = await _swipeTracker.canUserSwipe();
+                if (!canSwipe) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SubscribePremiumScreen(),
+                    ),
+                  );
+                }
+              }
+            },
+          );
         },
       ),
     );

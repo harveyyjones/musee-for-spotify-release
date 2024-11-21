@@ -18,7 +18,7 @@ class NotificationService {
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    final initializationSettings = InitializationSettings(
+    final initializationSettings = const InitializationSettings(
       android: androidSettings,
     );
 
@@ -36,7 +36,7 @@ class NotificationService {
     String? payload,
   }) async {
     AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
+        const AndroidNotificationDetails(
       'chat_messages', // Channel ID
       'Chat Messages', // Channel name
       channelDescription: 'Notifications for new chat messages',
