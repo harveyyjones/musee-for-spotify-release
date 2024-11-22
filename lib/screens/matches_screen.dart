@@ -65,6 +65,11 @@ class _MatchesScreenState extends State<MatchesScreen>
 
   Future<String> _getCurrentlyListeningMusic() async {
     try {
+      bool isSpotifyActive = await SpotifySdk.isSpotifyAppActive;
+      if (!isSpotifyActive) {
+        return '';
+      }
+
       String? musicName =
           await _firestoreDatabaseService.returnCurrentlyListeningMusicName();
       return musicName ?? '';

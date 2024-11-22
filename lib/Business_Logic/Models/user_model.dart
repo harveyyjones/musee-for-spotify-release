@@ -19,6 +19,7 @@ class UserModel {
   bool? isUserListening;
   int? age;
   List<String> interestedIn;
+  String? fcmToken;
 
   UserModel({
     this.userId = '',
@@ -39,6 +40,7 @@ class UserModel {
     this.isUserListening = false,
     this.age = 0,
     this.interestedIn = const [],
+    this.fcmToken = '',
   }) : this.profilePhotos = (profilePhotos?.isEmpty ?? true) ||
                 (profilePhotos?.first.trim().isEmpty ?? true)
             ? [
@@ -66,6 +68,7 @@ class UserModel {
       "gender": gender ?? "",
       "age": age ?? 0,
       "interestedIn": interestedIn,
+      "fcmToken": fcmToken ?? "",
     };
   }
 
@@ -103,5 +106,6 @@ class UserModel {
         isUserListening = map["isUserListening"] as bool? ?? false,
         gender = map["gender"] as String? ?? '',
         age = map["age"] as int? ?? 0,
-        interestedIn = List<String>.from(map["interestedIn"] ?? []);
+        interestedIn = List<String>.from(map["interestedIn"] ?? []),
+        fcmToken = map["fcmToken"] as String? ?? '';
 }

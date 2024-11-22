@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:spotify_project/Business_Logic/Models/conversations_in_message_box.dart';
 import 'package:spotify_project/Business_Logic/Models/user_model.dart';
 import 'package:spotify_project/Business_Logic/chat_services/chat_database_service.dart';
+import 'package:spotify_project/Business_Logic/chat_services/firebase_mesaaging_background.dart';
 import 'package:spotify_project/Business_Logic/firestore_database_service.dart';
 import 'package:spotify_project/Helpers/helpers.dart';
 import 'package:spotify_project/business/subscription_service.dart';
@@ -22,6 +23,7 @@ class MessageScreen extends StatefulWidget {
 }
 
 class _MessageScreenState extends State<MessageScreen> {
+  NotificationService _notificationService = NotificationService();
   FirestoreDatabaseService firestoreDatabaseService =
       FirestoreDatabaseService();
   ChatDatabaseService _chatDatabaseService = ChatDatabaseService();
@@ -157,6 +159,12 @@ class _MessageScreenState extends State<MessageScreen> {
                   },
                 ),
               ),
+
+              ElevatedButton(
+                  onPressed: () {
+                    _notificationService.sendTestNotification();
+                  },
+                  child: Text('Send Test Notification'))
             ],
           ),
         );

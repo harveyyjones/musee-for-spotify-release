@@ -101,4 +101,17 @@ class NotificationService {
       return null;
     }
   }
+
+  Future<void> sendTestNotification() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser != null) {
+      await FirebaseFirestore.instance.collection('message_notifications').add({
+        'senderId': currentUser.uid,
+        'recipientId': currentUser.uid, // Sending to self for testing
+        'message': 'Test notification',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+      print('Test notification document created');
+    }
+  }
 }

@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -165,6 +166,7 @@ class FirestoreDatabaseService {
     int? age,
     String? gender,
     List<String>? interestedIn,
+    String? fcmToken,
   }) async {
     UserModel eklenecekUser = UserModel(
       biography: biography ?? "",
@@ -182,6 +184,7 @@ class FirestoreDatabaseService {
       age: age,
       gender: gender,
       interestedIn: interestedIn ?? [],
+      fcmToken: fcmToken,
     );
 
     await FirebaseFirestore.instance
@@ -572,14 +575,21 @@ class FirestoreDatabaseService {
       return;
     }
 
+    // Check if document exists first
+    final docSnapshot = await matchDoc.get();
+
     if (hasMatchedBefore) {
-      // Update existing match
-      await matchDoc.update({
-        "timeStamp": DateTime.now(),
-        "url": musicUrl,
-        "titleOfTheSong": title,
-      });
-      print("Existing match updated successfully");
+      if (docSnapshot.exists) {
+        // Update existing match
+        await matchDoc.update({
+          "timeStamp": DateTime.now(),
+          "url": musicUrl,
+          "titleOfTheSong": title,
+        });
+        print("Existing match updated successfully");
+      } else {
+        print("Match document does not exist");
+      }
     } else {
       // Create new match
       await matchDoc.set({
@@ -1162,5 +1172,32 @@ class FirestoreDatabaseService {
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> getProfileData() {
     return _instance.collection("users").doc(currentUser!.uid).snapshots();
+  }
+
+  // Add this function to your authentication service
+  Future<void> saveUserFCMToken() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      // Get FCM token
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+
+      // Save it to user document
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({
+        'fcmToken': fcmToken,
+      });
+    }
+  }
+
+// Call this when user logs in or app starts
+  void initializeNotifications() async {
+    // Request permission
+    await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
   }
 }

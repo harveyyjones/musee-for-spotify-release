@@ -16,17 +16,19 @@ class QuickMatchesScreen extends StatefulWidget {
 class _QuickMatchesScreenState extends State<QuickMatchesScreen> {
   final SwipeTracker _swipeTracker = SwipeTracker();
   Future<List<UserModel>>? _dataFuture;
-  late String _filterType;
+  late String _showSwipedAgainLater;
+  late String _neverSeeIfUnliked;
 
   @override
   void initState() {
     super.initState();
-    _filterType = "show the swiped again later";
+    _showSwipedAgainLater = "show the swiped again later";
+    _neverSeeIfUnliked = "never see the unliked again";
     _loadInitialData();
   }
 
   void _loadInitialData() {
-    _dataFuture = _loadData(_filterType);
+    _dataFuture = _loadData(_neverSeeIfUnliked);
   }
 
   Future<List<UserModel>> _loadData(String filterType) async {

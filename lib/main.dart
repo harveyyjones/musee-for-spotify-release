@@ -26,11 +26,30 @@ import 'package:spotify_sdk/spotify_sdk.dart';
 import 'package:spotify_project/business/Spotify_Logic/Models/top_playlists.dart';
 import 'package:spotify_project/business/Spotify_Logic/services/fetch_playlists.dart';
 import 'package:workmanager/workmanager.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'Business_Logic/firestore_database_service.dart';
 import 'screens/quick_match_screen.dart';
 
 import 'package:spotify_project/Business_Logic/firestore_database_service.dart';
+
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(
+    options: const FirebaseOptions(
+      apiKey: "AIzaSyAeu7KYeIdCUZ8DZ0oCjjzK15rVdilwKO8",
+      appId: "1:985372741706:android:c92c014fe473d59aff96b3",
+      messagingSenderId: "985372741706",
+      projectId: "musee-285eb",
+      storageBucket: "gs://musee-285eb.appspot.com",
+    ),
+  );
+}
 
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
@@ -65,6 +84,8 @@ void main() async {
     ),
   );
 
+  await initializeFirebaseMessaging();
+
   await Workmanager().initialize(
     callbackDispatcher,
     isInDebugMode: true,
@@ -96,7 +117,116 @@ void main() async {
   runApp(MyApp(businessLogic: businessLogic));
 }
 
-// ... [Keep all the existing imports and main function]
+Future<void> initializeFirebaseMessaging() async {
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // Request all permissions for notifications
+  await FirebaseMessaging.instance.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+    provisional: false,
+    criticalAlert: true, // For critical notifications
+    announcement: true,
+  );
+
+  // Configure foreground notification presentation options
+  await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+
+  // Initialize local notifications
+  const AndroidInitializationSettings initializationSettingsAndroid =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  const InitializationSettings initializationSettings = InitializationSettings(
+    android: initializationSettingsAndroid,
+  );
+
+  await flutterLocalNotificationsPlugin.initialize(
+    initializationSettings,
+    onDidReceiveNotificationResponse: (details) {
+      // Handle notification tap
+      print('Notification clicked');
+    },
+  );
+
+  // Create high-importance notification channel
+  const AndroidNotificationChannel channel = AndroidNotificationChannel(
+    'chat_messages',
+    'Chat Messages',
+    description: 'Notifications for new chat messages',
+    importance: Importance.max,
+    enableVibration: true,
+    playSound: true,
+    showBadge: true,
+  );
+
+  await flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(channel);
+
+  // Get initial token
+  String? initialToken = await FirebaseMessaging.instance.getToken();
+  print('Initial FCM Token: $initialToken');
+
+  // Handle foreground messages
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    RemoteNotification? notification = message.notification;
+    AndroidNotification? android = message.notification?.android;
+
+    if (notification != null && android != null) {
+      flutterLocalNotificationsPlugin.show(
+        notification.hashCode,
+        notification.title,
+        notification.body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            channel.id,
+            channel.name,
+            channelDescription: channel.description,
+            importance: Importance.max,
+            priority: Priority.high,
+            showWhen: true,
+            enableVibration: true,
+            playSound: true,
+            icon: '@mipmap/ic_launcher',
+          ),
+        ),
+      );
+    }
+
+    print('Got a message whilst in the foreground!');
+    print('Message data: ${message.data}');
+
+    if (message.notification != null) {
+      print('Message also contained a notification: ${message.notification}');
+    }
+  });
+
+  FirebaseAuth.instance.authStateChanges().listen((User? user) async {
+    if (user != null) {
+      final token = await FirebaseMessaging.instance.getToken();
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({'fcmToken': token});
+    }
+  });
+
+  FirebaseMessaging.instance.onTokenRefresh.listen((String token) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({'fcmToken': token});
+    }
+  });
+}
 
 class MyApp extends StatelessWidget {
   final BusinessLogic businessLogic;

@@ -1,4 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -37,12 +39,17 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> signUp() async {
     setState(() => isLoading = true);
     try {
+      // Create user with Firebase Auth
       UserCredential userCredential =
           await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: emailController.text,
         password: passwordController.text,
       );
 
+      // Get FCM token
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+
+      // Save user data including FCM token
       await _firestoreDatabaseService.saveUser(
         biography: "",
         name: nameController.text,
@@ -52,7 +59,18 @@ class _RegisterPageState extends State<RegisterPage> {
         phoneNumber: "",
         clinicOwner: false,
         uid: userCredential.user?.uid,
+        fcmToken: fcmToken, // Add FCM token here
       );
+
+      // Set up FCM token refresh listener
+      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+        if (userCredential.user?.uid != null) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userCredential.user!.uid)
+              .update({'fcmToken': newToken});
+        }
+      });
 
       Navigator.pushReplacement(
           context, MaterialPageRoute(builder: (context) => Steppers()));
